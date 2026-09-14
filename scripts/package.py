@@ -44,6 +44,12 @@ with tempfile.TemporaryDirectory(prefix='package-', dir=root / '.native') as tem
     subprocess.run([str(engine / 'Engine/Build/BatchFiles/RunUAT.sh'), 'BuildPlugin',
         '-Plugin=' + str(stage / 'Nuxie.uplugin'), '-Package=' + str(output),
         '-TargetPlatforms=' + args.platforms, '-Architecture_Mac=arm64', '-Architecture_Android=arm64', '-NoP4'], env=environment, check=True)
+# BuildPlugin clears EnabledByDefault; restore explicit opt-in before hashing.
+# Otherwise content-only projects can reuse UnrealGame without linking Nuxie.
+descriptor_path = output / 'Nuxie.uplugin'
+descriptor = json.loads(descriptor_path.read_text())
+descriptor['EnabledByDefault'] = json.loads((root / 'Nuxie.uplugin').read_text())['EnabledByDefault']
+descriptor_path.write_text(json.dumps(descriptor, indent=2) + '\n')
 manifest = {'sdk': pins['version'], 'pins': pins, 'engine': version, 'platforms': args.platforms.split('+'), 'files': {}}
 for path in sorted(output.rglob('*')):
     if path.is_file():

@@ -10,6 +10,7 @@
   "DocsURL": "https://github.com/nuxieai/nuxie-ue",
   "CanContainContent": false,
   "Installed": false,
+  "EnabledByDefault": false,
   "SupportedTargetPlatforms": [
     "Android",
     "IOS",

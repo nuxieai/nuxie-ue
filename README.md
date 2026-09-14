@@ -35,7 +35,7 @@ MyGame/
 
 Enable **Nuxie**, restart the editor, and enter your client public keys under **Project Settings → Nuxie**. Only the running platform's key is required. These are public SDK keys, never backend secret keys.
 
-Blueprint gameplay does not require a C++ gameplay class. Packaging still requires Unreal's iOS/Android components and the corresponding platform tools. A source checkout also needs the native preparation steps in [building the plugin](docs/getting-started.md). Do not hand-edit generated Gradle, GameActivity, or Xcode files.
+Blueprint gameplay does not require a C++ gameplay class. Keep Nuxie explicitly enabled in your `.uproject`; Unreal generates an intermediate native target to link the plugin into mobile builds. Packaging still requires Unreal's iOS/Android components and the corresponding platform tools. A source checkout also needs the native preparation steps in [building the plugin](docs/getting-started.md). Do not hand-edit generated Gradle, GameActivity, or Xcode files.
 
 ## Your first Blueprint graph
 
