@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import groovy.json.JsonSlurper
 
 plugins {
   id("com.android.library")
@@ -25,14 +26,18 @@ android {
   }
 
   testOptions {
-    unitTests.isReturnDefaultValues = true
+    unitTests.isIncludeAndroidResources = true
   }
 }
 
+val nativePins = JsonSlurper().parse(rootProject.file("../../NATIVE-PINS.json")) as Map<*, *>
+val androidPin = (nativePins["android"] as Map<*, *>)["revision"] as String
+
 dependencies {
-  implementation("ai.nuxie:nuxie-android:0.1.0")
+  implementation("ai.nuxie:nuxie-android:0.2.0-${androidPin}")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
   testImplementation("junit:junit:4.13.2")
+  testImplementation("org.robolectric:robolectric:4.14.1")
 }
 
 val preparedAar = rootProject.layout.projectDirectory.file(

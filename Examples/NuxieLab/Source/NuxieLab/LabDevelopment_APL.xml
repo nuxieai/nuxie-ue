@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+  <androidManifestUpdates><addAttribute tag="application" name="android:networkSecurityConfig" value="@xml/nuxie_lab_network" /></androidManifestUpdates>
+  <gradleCopies><copyFile src="$S(PluginDir)/nuxie_lab_network.xml" dst="$S(BuildDir)/gradle/app/src/main/res/xml/nuxie_lab_network.xml" /></gradleCopies>
+</root>

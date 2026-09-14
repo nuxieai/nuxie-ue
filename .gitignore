@@ -18,3 +18,26 @@ ThirdParty/Android/bridge/build/
 ThirdParty/IOS/.build/
 ThirdParty/IOS/.swiftpm/
 ThirdParty/IOS/Package.resolved
+
+# Generated distribution and local validation
+.native/
+dist/
+**/local-settings.json
+
+ThirdParty/IOS/.*.log
+ThirdParty/IOS/lib/*-ios.embeddedframework.zip
+ThirdParty/IOS/lib/*-simulator.embeddedframework.zip
+
+ThirdParty/Android/maven/
+ThirdParty/Android/lib/*.aar
+
+Examples/*/Plugins/
+
+ThirdParty/*/lib/receipt.json
+__pycache__/
+
+ThirdParty/IOS/lib/ios/
+ThirdParty/IOS/lib/simulator/
+Examples/*/Config/User*.ini
+
+Examples/*/Build/

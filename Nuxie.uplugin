@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 2,
-  "VersionName": "0.2.0",
+  "Version": 3,
+  "VersionName": "0.3.0",
   "FriendlyName": "Nuxie",
   "Description": "Unreal Engine bindings for Nuxie Journeys and Features.",
   "Category": "Analytics",
@@ -12,7 +12,10 @@
   "Installed": false,
   "SupportedTargetPlatforms": [
     "Android",
-    "IOS"
+    "IOS",
+    "Mac",
+    "Win64",
+    "Linux"
   ],
   "Modules": [
     {
@@ -21,8 +24,8 @@
       "LoadingPhase": "Default"
     },
     {
-      "Name": "NuxieBlueprint",
-      "Type": "Runtime",
+      "Name": "NuxieEditor",
+      "Type": "Editor",
       "LoadingPhase": "Default"
     }
   ]

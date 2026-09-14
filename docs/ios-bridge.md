@@ -1,21 +1,7 @@
 # iOS bridge
 
-The iOS binding is a Swift dynamic framework compiled against Nuxie iOS 0.1.0.
-It exports a small C ABI:
+Swift directly imports the exact SDK revision in `NATIVE-PINS.json`. C exports provide contract version, request dispatch, message polling, and owned-string release. All native operations enter the main actor; Unreal receives asynchronous replies through the game-thread dispatcher.
 
-    char *NuxieUnreal_Invoke(const char *method, const char *arguments_json);
-    char *NuxieUnreal_PopPendingEvent(void);
-    void NuxieUnreal_FreeCString(char *value);
+`ThirdParty/IOS/scripts/build-framework.sh` prepares separate device and arm64 simulator framework archives and includes `Nuxie_Nuxie.bundle`. The module rule selects the simulator artifact for `UnrealArch.IOSSimulator`. Build and test through Xcode, not a host `swift build`.
 
-The Swift implementation calls the typed NuxieSDK.shared surface directly. It
-uses the same private response and event envelope as Android. The framework
-contains Nuxie_Nuxie.bundle, including the privacy manifest and timezone data
-required by the SDK.
-
-Build the embedded framework archive with:
-
-    cd ThirdParty/IOS
-    ./scripts/build-framework.sh
-
-The build runs with library evolution and complete concurrency checking.
-Nuxie.Build.cs embeds the prepared framework on iOS.
+The debug-only endpoint override is `NUXIE_UNREAL_API_ENDPOINT`. Release builds retain native environment configuration. Packaged qualification must verify framework embedding, native runtime symbols, resources, Experience rendering, and warm-start behavior.

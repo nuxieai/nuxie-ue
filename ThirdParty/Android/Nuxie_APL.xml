@@ -1,32 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root xmlns:android="http://schemas.android.com/apk/res/android">
-  <init>
-    <log text="Nuxie Android bridge init" />
-  </init>
-
-  <minimumSDKAPI>23</minimumSDKAPI>
-
+  <minimumSDKAPI>26</minimumSDKAPI>
   <gradleCopies>
-    <copyFile
-      src="$S(PluginDir)/lib/nuxie-unreal-bridge.aar"
-      dst="$S(BuildDir)/libs/nuxie-unreal-bridge.aar" />
+    <copyFile src="$S(PluginDir)/lib/nuxie-unreal-bridge.aar" dst="$S(BuildDir)/gradle/app/libs/nuxie-unreal-bridge.aar" />
+    <copyFile src="$S(PluginDir)/../../NATIVE-PINS.json" dst="$S(BuildDir)/gradle/app/nuxie-native-pins.json" />
+    <copyDir src="$S(PluginDir)/maven" dst="$S(BuildDir)/gradle/app/nuxie-maven" />
   </gradleCopies>
-
   <buildGradleAdditions>
     <insert>
+def nuxiePins = new groovy.json.JsonSlurper().parse(file("nuxie-native-pins.json"))
 repositories {
+    maven { url uri("nuxie-maven") }
+    google()
     mavenCentral()
 }
 dependencies {
     implementation files("libs/nuxie-unreal-bridge.aar")
-    implementation "ai.nuxie:nuxie-android:0.1.0"
+    implementation "ai.nuxie:nuxie-android:0.2.0-${nuxiePins.android.revision}"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 }
     </insert>
   </buildGradleAdditions>
-
-  <proguardAdditions>
-    <insert>
--keep class ai.nuxie.** { *; }
-    </insert>
-  </proguardAdditions>
+  <proguardAdditions><insert>
+-keep class ai.nuxie.unreal.** { *; }
+  </insert></proguardAdditions>
 </root>

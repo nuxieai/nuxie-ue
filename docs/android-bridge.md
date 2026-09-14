@@ -1,24 +1,7 @@
 # Android bridge
 
-The Android binding is a compiled Kotlin AAR in the package ai.nuxie.unreal.
-It depends exactly on:
+The Kotlin runtime directly calls the SDK revision in `NATIVE-PINS.json`. `NuxieUnrealBridge` exports compiled static `contractVersion`, `dispatch(Activity, String)`, and `popMessage` entry points. The Unreal transport uses the application class loader and UTF-16 JNI strings.
 
-    ai.nuxie:nuxie-android:0.1.0
+UPL copies the bridge AAR, pinned SDK Maven files, and pin manifest into the app's Gradle project. The SDK publication supplies its transitive dependency metadata and native runtime assets. Consumer builds must not resolve the retired 0.1 SDK or depend on a developer's Maven home.
 
-Unreal C++ passes GameActivity directly to
-NuxieUnrealBridge.invoke(Activity, method, argumentsJson). The adapter calls
-the typed Kotlin SDK surface and returns one JSON response. Public native events
-are written to a concurrent queue and consumed through popPendingEvent().
-
-The adapter directly compiles setup, identity, event recording, dismiss,
-locale, policy-aware Feature access, Feature usage, activity, App Actions, and
-commerce. SDK method lookup by string is not used.
-
-Build the prepared AAR with:
-
-    cd ThirdParty/Android
-    NUXIE_ANDROID_MAVEN_REPO=/path/to/maven-repo \
-      ./gradlew :bridge:testDebugUnitTest :bridge:lint :bridge:prepareBridgeAar
-
-The APL copies the resulting AAR into the Unreal Android build and resolves the
-native SDK from Maven.
+Run `python3 scripts/prepare-android.py` to prepare, and `bash scripts/test-android-bridge.sh` to execute bridge tests. Device qualification additionally inspects the merged manifest, dependency resolution, native library closure, shrinker retention, and 16 KiB alignment.
