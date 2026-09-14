@@ -1,5 +1,6 @@
 #include "NuxieLab.h"
 #include "NuxieSettings.h"
+#include "UObject/UObjectGlobals.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/SafeZone.h"
@@ -25,6 +26,47 @@ const FLinearColor Hover(0.14f, 0.14f, 0.17f, 1);
 const FLinearColor Primary(0.36f, 0.20f, 0.78f, 1);
 const FLinearColor Foreground(0.94f, 0.94f, 0.97f, 1);
 const TCHAR* SlotName = TEXT("NuxieLabPendingOperation");
+}
+void UNuxieLabPresentation::Initialize(FSubsystemCollectionBase& Collection) {
+  Super::Initialize(Collection); Collection.InitializeDependency<UNuxieSubsystem>();
+  Client = GetGameInstance()->GetSubsystem<UNuxieSubsystem>();
+  Client->OnActivity.AddDynamic(this, &UNuxieLabPresentation::Activity);
+  Client->OnStatusChanged.AddDynamic(this, &UNuxieLabPresentation::Status);
+  MapLoaded = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UNuxieLabPresentation::ApplyPause);
+}
+void UNuxieLabPresentation::RestorePause() {
+  if (bOwnsPause && PausedWorld.IsValid()) UGameplayStatics::SetGamePaused(PausedWorld.Get(), false);
+  bOwnsPause = false; PausedWorld.Reset();
+}
+void UNuxieLabPresentation::ApplyPause(UWorld* World) {
+  if (!World || World->GetGameInstance() != GetGameInstance() || ActiveExperiences.IsEmpty() || PausedWorld.Get() == World) return;
+  RestorePause(); PausedWorld = World;
+  // Preserve a pause that belonged to the game before the native screen appeared.
+  if (!UGameplayStatics::IsGamePaused(World)) bOwnsPause = UGameplayStatics::SetGamePaused(World, true);
+}
+void UNuxieLabPresentation::Activity(const FNuxieActivity& Value) {
+  if (Value.Name != TEXT("experience_shown") && Value.Name != TEXT("experience_dismissed") && Value.Name != TEXT("experience_errored")) return;
+  if (SeenActivities.Contains(Value.Id)) return;
+  SeenActivities.Add(Value.Id); if (SeenActivities.Num() > 256) SeenActivities.RemoveAt(0);
+  const auto* Experience = Value.Properties.Find(TEXT("experience_id"));
+  if (!Experience || Experience->Kind != ENuxieScalarKind::String || Experience->String.IsEmpty()) return;
+  // Native activity exposes an Experience reference, not a presentation-instance ID.
+  FString Key;
+  for (const TCHAR* Name : {TEXT("experience_id"), TEXT("experience_version"), TEXT("journey_id")}) {
+    const auto* Field = Value.Properties.Find(Name);
+    const FString Text = Field && Field->Kind == ENuxieScalarKind::String ? Field->String : FString();
+    Key += FString::Printf(TEXT("%d:%s"), Text.Len(), *Text);
+  }
+  if (Value.Name == TEXT("experience_shown")) { ActiveExperiences.Add(Key); ApplyPause(GetWorld()); }
+  else { ActiveExperiences.Remove(Key); if (ActiveExperiences.IsEmpty()) RestorePause(); }
+}
+void UNuxieLabPresentation::Status(const FNuxieStatus& Value) {
+  if (Value.Kind == ENuxieStatusKind::ShuttingDown || Value.Kind == ENuxieStatusKind::Unconfigured) { ActiveExperiences.Reset(); RestorePause(); }
+}
+void UNuxieLabPresentation::Deinitialize() {
+  Client->OnActivity.RemoveAll(this); Client->OnStatusChanged.RemoveAll(this);
+  FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(MapLoaded);
+  ActiveExperiences.Reset(); RestorePause(); Super::Deinitialize();
 }
 void UNuxieLabBilling::BeginPurchase_Implementation(UNuxiePurchaseRequest* Request) {
   if (Purchase && Purchase->IsPending()) { Request->TryComplete(ENuxiePurchaseOutcome::Failed, TEXT("The Lab already has a checkout.")); return; }
@@ -225,13 +267,14 @@ void UNuxieLabWidget::NativeConstruct() {
   const FString Path = FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json");
   Log(TEXT("Development runner settings: ") + Path);
   FString Json; TSharedPtr<FJsonObject> Settings;
-  if (!FFileHelper::LoadFileToString(Json, *Path)) return;
+  if (!FFileHelper::LoadFileToString(Json, *Path)) { Log(TEXT("No development runner settings loaded; use the Lab controls for manual validation.")); return; }
   if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) || !Settings) { Log(TEXT("Invalid development runner JSON.")); return; }
   FString Key, CustomerId, FeatureId, EntityId, OtherEntityId;
   if (!Settings->TryGetStringField(TEXT("publicKey"), Key) || !Settings->TryGetStringField(TEXT("customerId"), CustomerId) || !Settings->TryGetStringField(TEXT("featureId"), FeatureId) || !Settings->TryGetStringField(TEXT("entityId"), EntityId) || !Settings->TryGetStringField(TEXT("comparisonEntityId"), OtherEntityId)) { Log(TEXT("Development runner requires publicKey, customerId, featureId, entityId, comparisonEntityId.")); return; }
   PublicKey->SetText(FText::FromString(Key)); Customer->SetText(FText::FromString(CustomerId)); Feature->SetText(FText::FromString(FeatureId)); Entity->SetText(FText::FromString(EntityId)); ComparisonEntity->SetText(FText::FromString(OtherEntityId));
   FNuxieOptions Options; Options.IOSPublicKey = Options.AndroidPublicKey = Key; Options.Environment = ENuxieEnvironment::Development; Options.LogLevel = ENuxieLogLevel::Debug;
   bOperationPending = true;
+  Log(TEXT("Development runner settings loaded; configuring the native client."));
   Client->Configure(Options, FNuxieCompletion::CreateWeakLambda(this, [this, CustomerId](const FNuxieResult& Setup) {
     if (!Setup.IsSuccess()) { ValidationFinished(false, TEXT("Configure: ") + Setup.GetError().Message); return; }
     Log(TEXT("Automatic configure succeeded."));

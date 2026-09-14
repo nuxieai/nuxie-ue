@@ -12,6 +12,26 @@
 class UEditableTextBox;
 class UTextBlock;
 class UVerticalBox;
+/** The Lab owns its pause policy; the SDK owns native presentation. */
+UCLASS()
+class UNuxieLabPresentation : public UGameInstanceSubsystem {
+  GENERATED_BODY()
+public:
+  void Initialize(FSubsystemCollectionBase& Collection) override;
+  void Deinitialize() override;
+  bool IsPresenting() const { return !ActiveExperiences.IsEmpty(); }
+private:
+  UPROPERTY() TObjectPtr<UNuxieSubsystem> Client;
+  TSet<FString> ActiveExperiences;
+  TArray<FString> SeenActivities;
+  TWeakObjectPtr<UWorld> PausedWorld;
+  bool bOwnsPause = false;
+  FDelegateHandle MapLoaded;
+  void ApplyPause(UWorld* World);
+  void RestorePause();
+  UFUNCTION() void Activity(const FNuxieActivity& Value);
+  UFUNCTION() void Status(const FNuxieStatus& Value);
+};
 /** Game-instance lifetime: retained checkout survives widget destruction and map travel.
  * This manual harness demonstrates cancellation/failure, never fabricates store success. */
 UCLASS()
