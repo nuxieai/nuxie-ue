@@ -1,61 +1,30 @@
-# Getting started
+# Build from source
 
-## 1. Add the plugin
+Requirements: UE 5.8.2 with Mac editor plus iOS and Android optional components; Xcode with an iOS simulator; Android SDK and NDK matching Unreal's requirements; JDK 21; Python 3; a C++20 compiler. UE 5.8 mobile defaults target Android SDK 35 and iOS 17 or newer. Unreal's platform validation remains authoritative for installed tool versions.
 
-Place this repository at Plugins/Nuxie in the game project. Enable Nuxie and
-NuxieBlueprint, then regenerate project files.
+Set `UNREAL_ENGINE_ROOT`, `JAVA_HOME`, `ANDROID_HOME`, and `NUXIE_IOS_SIMULATOR_ID` in your shell. Do not commit machine paths. The default engine path in the local check script is Epic's standard Mac installation directory.
 
-Android packaging requires Maven Central access for the exact
-ai.nuxie:nuxie-android:0.1.0 dependency. iOS packaging uses the prepared
-embedded framework in ThirdParty/IOS/lib.
+From the SDK root:
 
-## 2. Configure once
+```sh
+python3 scripts/prepare-android.py
+bash ThirdParty/IOS/scripts/build-framework.sh
+python3 scripts/link-example.py
+python3 scripts/check.py
+```
 
-Resolve UNuxieSubsystem from the game instance and call Configure. Use
-production or development, choose a log level, and optionally provide a locale
-and purchase controller.
+Android preparation fetches the exact pinned SDK into `.native/android`, publishes it to a private build-local Maven directory, compiles/tests the bridge, and prepares the Maven closure and AAR. It refuses to overwrite modified native input source. iOS preparation builds separate device and arm64 simulator framework archives and includes the native resource bundle.
 
-Identity calls are cache-first:
+Open `Examples/NuxieLab/NuxieLab.uproject`. The checked-in maps and Blueprint are actual Unreal assets. The explicit `NuxieCreateExamples` commandlet creates them in a fresh example project and refuses to overwrite existing teaching graphs.
 
-    FNuxieError Error;
-    Nuxie->Identify(TEXT("player_123"), {}, {}, Error);
-    Nuxie->Reset(false, Error);
+Create a distribution using the bounded staging script, which verifies native input/artifact hashes and avoids recursing into example plugin links:
 
-Profile synchronization happens at native lifecycle sync points.
+```sh
+python3 scripts/package.py --platforms IOS+Android+Mac --output dist/prepared-mobile
+```
 
-## 3. Record events
+The output directory must not already exist. The script runs Unreal's `BuildPlugin`, includes `Config/FilterPlugin.ini` resources, and writes `ARTIFACT-MANIFEST.json` with engine version, native pins, target platforms, and file hashes. `--platforms Mac` validates editor installation only. Copy the prepared output into `Examples/BlueprintOnly/Plugins/Nuxie`, then open that project. It has real Blueprint assets and no gameplay C++ module. Mobile cook/package and device runs remain separate qualification steps; an editor archive does not prove them.
 
-    Nuxie->Trigger(TEXT("level_completed"), {});
+The example's source link is only for contributors. A consumer installs a copied prepared plugin into `Plugins/Nuxie`; it must not depend on your SDK checkout, local Maven home, or another project's compiled module.
 
-Trigger returns no result and exposes no operation handle. A matching Journey
-continues in the native SDK, including experiment selection and presentation.
-
-## 4. Receive runtime output
-
-Bind to:
-
-- OnFeatureAccessChanged
-- OnActivity
-- OnAppAction
-- OnPurchaseRequest
-- OnRestoreRequest
-
-Activity and App Action properties use FNuxieScalarValue, preserving strings,
-integers, numbers, and booleans.
-
-## 5. Check and consume Features
-
-Use Has Nuxie Feature with either cache-first or remote policy. Use UseFeature
-for fire-and-forget usage, or Use Nuxie Feature And Wait when the authoritative
-post-usage access snapshot is required.
-
-## 6. Commerce
-
-Set bUsePurchaseController during configuration and provide an
-INuxiePurchaseController. The plugin forwards canonical purchase and restore
-requests, waits for the controller result, and completes the native request.
-
-## 7. Shut down
-
-Use ShutdownAsync from C++, or Shutdown Nuxie in Blueprint, and wait for its
-completion before reconfiguring the SDK.
+For local native development, obtain the backend origin from `pnpm run dev:print` in the parent checkout. iOS debug processes accept `NUXIE_UNREAL_API_ENDPOINT`; debuggable Android apps accept that intent extra. Supply the current local origin explicitly. Android HTTP development also needs a debug-only network policy when using cleartext HTTP; release traffic must retain its normal policy.

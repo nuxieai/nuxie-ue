@@ -1,23 +1,28 @@
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
+
+let pinsURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("NATIVE-PINS.json")
+let pins = try JSONSerialization.jsonObject(with: Data(contentsOf: pinsURL)) as! [String: Any]
+let ios = pins["ios"] as! [String: String]
 
 let package = Package(
   name: "NuxieUnrealBridge",
   platforms: [
-    .iOS(.v15),
+    .iOS(.v17),
   ],
   products: [
     .library(
       name: "NuxieUnrealBridge",
       type: .dynamic,
       targets: ["NuxieUnrealBridge"]
-    ),
+    )
   ],
   dependencies: [
     .package(
-      url: "https://github.com/nuxieai/nuxie-ios.git",
-      exact: "0.1.0"
-    ),
+      url: ios["repository"]!,
+      revision: ios["revision"]!
+    )
   ],
   targets: [
     .target(
@@ -29,6 +34,7 @@ let package = Package(
     .testTarget(
       name: "NuxieUnrealBridgeTests",
       dependencies: ["NuxieUnrealBridge"]
-    ),
-  ]
+    )
+  ],
+  swiftLanguageModes: [.v5]
 )

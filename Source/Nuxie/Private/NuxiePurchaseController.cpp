@@ -1,0 +1,26 @@
+#include "NuxiePurchaseController.h"
+#include "NuxieSession.h"
+#include "Misc/DateTime.h"
+namespace {
+double NowMs() { return static_cast<double>(FDateTime::UtcNow().GetTicks() - FDateTime(1970, 1, 1).GetTicks()) / ETimespan::TicksPerMillisecond; }
+FString OutcomeJson(const FString& Type, const FString& Message) { auto Value = MakeShared<FJsonObject>(); Value->SetStringField(TEXT("type"), Type); Value->SetStringField(TEXT("message"), Message); return NuxieWire::Json(Value); }
+}
+bool UNuxiePurchaseRequest::IsPendingAt(double Now) const { return bPending && Session.IsValid() && Now < DeadlineMs; }
+bool UNuxieRestoreRequest::IsPendingAt(double Now) const { return bPending && Session.IsValid() && Now < DeadlineMs; }
+bool UNuxiePurchaseRequest::IsPending() const { return IsPendingAt(NowMs()); }
+bool UNuxieRestoreRequest::IsPending() const { return IsPendingAt(NowMs()); }
+bool UNuxiePurchaseRequest::TryComplete(ENuxiePurchaseOutcome Outcome, const FString& Message) {
+  check(IsInGameThread());
+  if (!IsPending()) return false;
+  bPending = false;
+  return Session.Pin()->CompleteCheckout(TEXT("completePurchase"), RequestId, OutcomeJson(StaticEnum<ENuxiePurchaseOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower(), Message));
+}
+bool UNuxieRestoreRequest::TryComplete(ENuxieRestoreOutcome Outcome, const FString& Message) {
+  check(IsInGameThread());
+  if (!IsPending()) return false;
+  bPending = false;
+  const FString Type = Outcome == ENuxieRestoreOutcome::NoPurchases ? TEXT("noPurchases") : StaticEnum<ENuxieRestoreOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower();
+  return Session.Pin()->CompleteCheckout(TEXT("completeRestore"), RequestId, OutcomeJson(Type, Message));
+}
+void INuxiePurchaseController::BeginPurchase_Implementation(UNuxiePurchaseRequest* Request) { Request->TryComplete(ENuxiePurchaseOutcome::Failed, TEXT("BeginPurchase is not implemented.")); }
+void INuxiePurchaseController::BeginRestore_Implementation(UNuxieRestoreRequest* Request) { Request->TryComplete(ENuxieRestoreOutcome::Failed, TEXT("BeginRestore is not implemented.")); }

@@ -1,30 +1,30 @@
-# Testing
+# Validation
 
-Run the portable and packaged-artifact checks from the repository root:
+The local gate is `python3 scripts/check.py`. It runs the production portable request ledger with address/undefined-behavior sanitizers, compiles the UE 5.8 Lab and plugin, executes `Nuxie.*` Unreal automation, builds/tests the Kotlin bridge, and runs the Swift bridge tests on an explicitly selected iOS simulator. Missing tooling fails the gate; it is not a skip.
 
-    node scripts/test-contract.mjs
-    ./scripts/test-android-bridge.sh
+## Evidence so far
 
-To compile the Kotlin adapter against a local exact 0.1.0 Maven fixture:
+- UE 5.8.2 Mac arm64: plugin and Lab editor builds passed.
+- After Epic's iOS/Android optional components were installed, the Lab's Android arm64 native build and Gradle debug APK packaging passed. `BuildCookRun -platform=Android -cookflavor=ASTC -cook -stage -pak -package -map=Lab+LabSecond` then passed. The resulting 159 MB APK installed on the Android API 36 arm64 emulator and reached the Lab’s initial Unknown feature state without a fatal startup error. Interactive backend validation remains unrun.
+- iOS arm64 C++/Objective-C++ compilation and linking passed. Both unsigned and automatically provisioned, development-signed Xcode PostBuildSync builds passed. The resulting app contains NuxieUnrealBridge.framework, its native resource bundle/privacy manifest, and the executable’s matching framework load path. Device launch remains unrun: the paired iPhones are currently unavailable to Xcode.
+- iOS simulator source compilation passed, but linking failed because the installed Epic distribution lacks simulator third-party libraries, beginning with PLCrashReporter. This is not an iOS simulator qualification pass.
+- Unreal automation: two contract tests passed: session lifecycle and value/receipt behavior, including accepted consumption at zero balance, exact generation/revision handling, full signed native integer bounds, and optional store metadata.
+- Portable C++ ledger: timeout, duplicate settlement, identity fencing, and exact numeric limits passed with sanitizers.
+- Kotlin native bridge: debug/release compilation and three checkout lifecycle tests passed.
+- Swift native bridge: simulator build and three checkout/session tests passed.
+- iOS device and simulator framework archives were rebuilt with lossless native scalar mapping.
+- Lab maps and a real Blueprint graph were generated and compiled by UE 5.8.2.
+- A prepared Mac arm64 plugin was built by `python3 scripts/package.py --platforms Mac --output dist/prepared-mac-v3`; its copied archive loaded and compiled the Blueprint-only example with zero commandlet errors/warnings.
+- The Lab UI was visually inspected in standalone editor play; keyboard configuration produced the expected UnsupportedPlatform result on Mac.
+- The game-instance-owned external billing harness compiles with retained typed requests and cancellation/failure controls; live checkout invocation remains unrun.
+- A disposable local backend workspace/app and authored Experience were created, published, and drained to a completed build. Mobile client validation is still unrun.
 
-    NUXIE_ANDROID_MAVEN_REPO=/path/to/maven-repo \
-      ./scripts/test-android-bridge.sh
+This is work-in-progress evidence, not release qualification. The following remain required: packaged iOS/Android Lab runs, live backend validation, visual Experience/App Action interaction, retained-cache warm start, pause/background/map travel, external checkout sandbox results, and a fresh Blueprint-only consumer packaged from the distribution archive. Update this record with actual results, commands, and artifact identity as each completes.
 
-That runs Android unit tests, lint, a release AAR build, and verifies the
-exported JVM signatures.
+## Live matrix
 
-To compile and test the Swift bridge:
+Use a disposable local development app and customer with a finite metered grant. Verify configure and identity, Unknown → Ready, two entity queries, accepted original consumption, same-ID replay, exactly one debit, unchanged second entity, denied consumption, anonymous rotation, reidentification, locale override/reset, trigger and rendered Experience, authored app action, dismissal, warm launch, pause, background/resume, and map travel.
 
-    cd ThirdParty/IOS
-    xcodebuild test \
-      -scheme NuxieUnrealBridge \
-      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-      SWIFT_STRICT_CONCURRENCY=complete
-    ./scripts/build-framework.sh
+The Lab's balance/replay validator checks two different finite entity balances and writes `Saved/NuxieLab/validation.json`. It assumes neither entity has concurrent consumers. Controls wait for admitted consumption/validation to settle so a second click cannot replace the pending saved operation. Saving the pending operation and gameplay application is part of the example. Logs must distinguish operation acceptance from Experience presentation and from store verification.
 
-The framework build uses library evolution and complete concurrency checking,
-copies Nuxie_Nuxie.bundle, and creates the archive consumed by Unreal.
-
-An Unreal Engine installation is still required for a full packaged game
-smoke test. The native compile gates catch SDK API drift without relying on
-runtime symbol lookup.
+For external checkout verify success, cancellation, pending, failure, restore, no purchases, wrong/duplicate completion, timeout, teardown, and selected offer fidelity. A manually reported Purchased value is not store sandbox evidence.

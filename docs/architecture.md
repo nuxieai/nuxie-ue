@@ -1,26 +1,15 @@
 # Architecture
 
-The plugin has one public contract and two compiled native transports.
+`UNuxieSubsystem` is the public game-instance boundary. It exposes typed operations and publications, and owns the external billing controller. It does not implement entitlement or Journey policy.
 
-UNuxieSubsystem owns the public C++ and Blueprint surface. It forwards calls
-to FNuxieJsonBridge, which serializes portable scalar values and parses typed
-Feature, activity, App Action, and commerce payloads. A game-thread ticker
-drains native events, so both platforms deliver the same event shape.
-Operations backed by native async APIs, including shutdown, run away from the
-game thread and complete on it.
+`FNuxieSession` owns the process-wide native lease, request correlation, bounded core-ticker dispatch, identity fencing, snapshot ordering, and teardown. A session keeps native ownership until shutdown acknowledges cleanup. One game's identity cannot silently become another game instance's identity.
 
-Android packages a Kotlin adapter that imports the Nuxie Android SDK at compile
-time. C++ calls two static methods through JNI:
+`NuxieWire` validates native result shapes and preserves nullable balances, exact decimal unsigned counters, and tagged signed integer activity values. `RequestLedger` is a portable production component with compiled behavior tests for timeout, identity admission, and exactly-once completion.
 
-- invoke(Activity, method, argumentsJson)
-- popPendingEvent()
+`INuxieNativeTransport` has only contract-version, submit, and poll operations. iOS uses exported C functions and owned UTF-8 strings. Android uses compiled static Kotlin entry points, the Unreal application class loader, UTF-16 JNI strings, and scoped references. Platform headers do not escape the private implementation.
 
-iOS packages a Swift dynamic framework that imports the Nuxie iOS SDK at
-compile time. Objective-C runtime lookup is not used. C++ calls the versioned C
-ABI described in [ios-bridge.md](ios-bridge.md).
+Swift and Kotlin runtimes call the pinned native SDK directly. They serialize native snapshot subscription, customer changes, Experience activity, and asynchronous external purchase requests. Backend consumption receipts remain authoritative. Entity query results never replace the global snapshot.
 
-The JSON boundary is private implementation detail. It exists to keep the
-Unreal parser and platform adapters on one contract; game code uses Unreal
-types only. Scalar values carry an explicit type tag. Integers cross as decimal
-strings and numbers cross as their exact IEEE 754 bit pattern, so int64 values,
-floating-point values, and their distinct types survive the boundary exactly.
+Blueprint async actions adapt the same subsystem methods. Observers bind before delivering current state and expose cancellation. `NuxieEditor` provides an explicit example-asset generation commandlet; no editor dependency is linked into a mobile player.
+
+The `NATIVE-PINS.json` contract and revisions govern both preparation and packaging. Prepared archives carry their native closure rather than resolving a floating SDK version at consumer build time.

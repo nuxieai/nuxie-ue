@@ -1,0 +1,6 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Description": "Blueprint-only Nuxie consumer. Install a prepared plugin into Plugins/Nuxie.",
+  "Plugins": [{"Name":"Nuxie","Enabled":true}]
+}

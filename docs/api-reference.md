@@ -1,58 +1,26 @@
-# API reference
+# Public API
 
-## Configuration and identity
+Include `NuxieSubsystem.h` and obtain the subsystem from your `UGameInstance`. All methods and delegates are game-thread APIs.
 
-- bool Configure(const FNuxieConfigureOptions&, FNuxieError&)
-- void ShutdownAsync(success callback, error callback)
-- bool Identify(const FString&, scalar user properties, scalar set-once properties, FNuxieError&)
-- bool Reset(bool bKeepAnonymousId, FNuxieError&)
-- FString GetDistinctId()
-- FString GetAnonymousId()
-- bool IsIdentified()
+| Method | Completion | Inputs |
+| --- | --- | --- |
+| Configure | FNuxieCompletion | FNuxieOptions |
+| Shutdown | FNuxieCompletion | None |
+| Identify | FNuxieCompletion | CustomerId, FNuxieIdentityOptions |
+| Reset | FNuxieCompletion | None |
+| GetIdentity | FNuxieIdentityCompletion | None |
+| CheckFeature | FNuxieFeatureCompletion | FeatureId, FNuxieFeatureQuery |
+| ConsumeFeature | FNuxieConsumeCompletion | FeatureId, FNuxieFeatureCommand |
+| Trigger | FNuxieCompletion | EventName, FNuxieProperties |
+| Dismiss | FNuxieCompletion | None |
+| SetLocale | FNuxieCompletion | Locale; empty restores device locale |
 
-FNuxieConfigureOptions contains the public API key, environment, log level,
-iOS console and redaction controls, locale, purchase handling mode, iOS Test
-Store switch, and purchase-controller switch.
+Each async Blueprint node has typed Success and Failure delegates. The C++ completion types use Unreal `TDelegate` and support `CreateWeakLambda`.
 
-## Journeys
+Synchronous reads: `GetStatus`, `GetFeatureSnapshot`, `GetFeatureState`.
 
-- void Trigger(const FString& EventName, scalar properties)
-- void DismissAsync(...)
-- void SetLocaleIdentifierAsync(...)
+Events: `OnStatusChanged`, `OnIdentityChanged`, `OnFeaturesChanged`, `OnActivity`, `OnAppAction`, `OnError`.
 
-Trigger records an event and returns immediately. It has no result, handle,
-cancellation, or identity mutation.
+Input values are separate from native scalar results. `FNuxieProperties` supports nested portable JSON. Native activity and app-action property maps use `FNuxieScalar`, whose tagged Integer field is a full int64.
 
-## Features
-
-- void HasFeatureAsync(feature, double required balance, entity, policy, callbacks)
-- void UseFeature(feature, double amount, entity, scalar metadata)
-- void UseFeatureAndWaitAsync(feature, double amount, entity, set usage, metadata, callbacks)
-
-FNuxieFeatureUsageResult contains optional usage details and optional
-AuthoritativeAccess.
-
-## Events
-
-- OnFeatureAccessChanged
-- OnActivity
-- OnAppAction
-- OnPurchaseRequest
-- OnRestoreRequest
-
-## Commerce
-
-- void SetPurchaseController(...)
-- bool CompletePurchase(...)
-- bool CompleteRestore(...)
-
-Purchase result values are Purchased, Cancelled, Pending, and Failed. Restore
-values are Restored, NoPurchases, and Failed.
-
-## Blueprint async actions
-
-- UNuxieShutdownAsyncAction::ShutdownNuxie
-- UNuxieHasFeatureAsyncAction::HasNuxieFeature
-- UNuxieUseFeatureAsyncAction::UseNuxieFeatureAndWait
-- UNuxieDismissAsyncAction::DismissNuxie
-- UNuxieSetLocaleAsyncAction::SetNuxieLocale
+The canonical fields, presence flags, and Blueprint metadata are in `Source/Nuxie/Public/NuxieTypes.h`. The [README](../README.md) explains their lifecycle and gameplay semantics.
