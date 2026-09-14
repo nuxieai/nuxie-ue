@@ -30,7 +30,7 @@ report = root / 'dist/check-report'
 report.mkdir(parents=True, exist_ok=True)
 index = report / 'index.json'
 if index.exists(): index.unlink()
-run([editor, project, '-Unattended', '-NullRHI', '-NoSound', '-ExecCmds=Automation RunTests Nuxie.', '-TestExit=Automation Test Queue Empty', '-ReportExportPath=' + str(report), '-stdout'])
+run([editor, project, '-Unattended', '-nowrite', '-NullRHI', '-NoSound', '-ExecCmds=Automation RunTests Nuxie.', '-TestExit=Automation Test Queue Empty', '-ReportExportPath=' + str(report), '-stdout'])
 result = json.loads(index.read_text(encoding='utf-8-sig'))
 if result.get('failed') or result.get('notRun') or result.get('succeeded', 0) < 2:
     raise SystemExit('Unreal automation did not pass every Nuxie test.')
