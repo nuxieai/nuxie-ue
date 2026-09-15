@@ -32,7 +32,9 @@ index = report / 'index.json'
 if index.exists(): index.unlink()
 run([editor, project, '-Unattended', '-nowrite', '-NullRHI', '-NoSound', '-ExecCmds=Automation RunTests Nuxie.', '-TestExit=Automation Test Queue Empty', '-ReportExportPath=' + str(report), '-stdout'])
 result = json.loads(index.read_text(encoding='utf-8-sig'))
-if result.get('failed') or result.get('notRun') or result.get('succeeded', 0) < 2:
+required = {'Nuxie.Contract.DeferredBudget', 'Nuxie.Contract.SessionLifecycle', 'Nuxie.Contract.ValuesAndReceipts'}
+passed = {test.get('fullTestPath') for test in result.get('tests', []) if test.get('state') == 'Success'}
+if result.get('failed') or result.get('notRun') or not required.issubset(passed):
     raise SystemExit('Unreal automation did not pass every Nuxie test.')
 run(['./gradlew', ':bridge:testDebugUnitTest', ':bridge:assembleRelease'], root / 'ThirdParty/Android')
 # A simulator identifier is deliberate: do not select another task's device automatically in the gate.

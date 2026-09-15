@@ -9,3 +9,8 @@ public:
   virtual bool Poll(FString& Message) = 0;
 };
 TUniquePtr<INuxieNativeTransport> CreateNuxieNativeTransport();
+
+#if PLATFORM_ANDROID
+void WakeNuxieAndroidDispatcher();
+void StopNuxieAndroidDispatcher();
+#endif

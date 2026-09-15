@@ -46,7 +46,9 @@ void UNuxieLabPresentation::ApplyPause(UWorld* World) {
   if (!UGameplayStatics::IsGamePaused(World)) bOwnsPause = UGameplayStatics::SetGamePaused(World, true);
 }
 void UNuxieLabPresentation::Activity(const FNuxieActivity& Value) {
-  if (Value.Name != TEXT("experience_shown") && Value.Name != TEXT("experience_dismissed") && Value.Name != TEXT("experience_errored")) return;
+  // A completed Journey can retire its screen without a user-dismissal fact.
+  if (Value.Name != TEXT("experience_shown") && Value.Name != TEXT("experience_dismissed") &&
+      Value.Name != TEXT("experience_errored") && Value.Name != TEXT("journey_completed")) return;
   if (SeenActivities.Contains(Value.Id)) return;
   SeenActivities.Add(Value.Id); if (SeenActivities.Num() > 256) SeenActivities.RemoveAt(0);
   const auto* Experience = Value.Properties.Find(TEXT("experience_id"));
@@ -178,7 +180,22 @@ TSharedRef<SWidget> UNuxieLabWidget::RebuildWidget() {
 void UNuxieLabWidget::NativeDestruct() { if (Client) { Client->OnFeaturesChanged.RemoveAll(this); Client->OnActivity.RemoveAll(this); Client->OnAppAction.RemoveAll(this); } Super::NativeDestruct(); }
 void UNuxieLabWidget::FeaturesChanged(const FNuxieFeatureSnapshot& Snapshot) { Log(FString::Printf(TEXT("%s · customer %s · generation %s · revision %s"), *StaticEnum<ENuxieFeatureStateKind>()->GetNameStringByValue(static_cast<int64>(Snapshot.Kind)), *Snapshot.CustomerId, *Snapshot.IdentityGeneration, *Snapshot.Revision)); }
 void UNuxieLabWidget::Activity(const FNuxieActivity& Value) { Log(TEXT("Activity: ") + Value.Name); }
-void UNuxieLabWidget::AppAction(const FNuxieAppAction& Value) { Log(TEXT("App action: ") + Value.Name + TEXT(" · ") + FString::Printf(TEXT("%d typed payload values"), Value.Payload.Num())); }
+void UNuxieLabWidget::AppAction(const FNuxieAppAction& Value) {
+  Log(TEXT("App action: ") + Value.Name + TEXT(" · ") + FString::Printf(TEXT("%d typed payload values"), Value.Payload.Num()));
+#if !UE_BUILD_SHIPPING
+  // Opt-in device qualification: a local rejection must settle while the
+  // native screen remains open, without relying on another native message.
+  FString Json; TSharedPtr<FJsonObject> Settings; bool bValidateOverlayDispatch = false;
+  if (FFileHelper::LoadFileToString(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json"))) &&
+      FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) && Settings &&
+      Settings->TryGetBoolField(TEXT("validateOverlayDispatch"), bValidateOverlayDispatch) && bValidateOverlayDispatch) {
+    Client->CheckFeature(TEXT(""), FNuxieFeatureQuery(), FNuxieFeatureCompletion::CreateWeakLambda(this, [this](const TNuxieResult<FNuxieFeatureAccess>& Result) {
+      const bool Passed = !Result.IsSuccess() && Result.GetError().Code == ENuxieErrorCode::InvalidArgument;
+      Log(Passed ? TEXT("Overlay local rejection passed.") : TEXT("Overlay local rejection FAILED."));
+    }));
+  }
+#endif
+}
 void UNuxieLabWidget::Consume() {
   if (Save->Command.OperationId.IsEmpty()) {
     Save->Customer = Client->GetFeatureSnapshot().CustomerId;

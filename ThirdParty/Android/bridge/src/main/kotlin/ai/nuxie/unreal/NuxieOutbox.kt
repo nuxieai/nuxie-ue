@@ -53,6 +53,9 @@ internal class NuxieOutbox {
     return true
   }
 
+  @Synchronized fun hasMessages(): Boolean = replies.isNotEmpty() || checkout.isNotEmpty() ||
+    events.isNotEmpty() || features != null || overflow != null
+
   @Synchronized fun poll(): String? {
     replies.entries.firstOrNull()?.let { (id, value) ->
       replies.remove(id); admitted.remove(id); return value

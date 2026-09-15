@@ -1,4 +1,5 @@
 #include "NuxieModule.h"
+#include "NuxieNativeTransport.h"
 
 #include "Modules/ModuleManager.h"
 
@@ -10,4 +11,7 @@ void FNuxieModule::StartupModule()
 
 void FNuxieModule::ShutdownModule()
 {
+#if PLATFORM_ANDROID
+  StopNuxieAndroidDispatcher();
+#endif
 }

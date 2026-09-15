@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root xmlns:android="http://schemas.android.com/apk/res/android">
   <minimumSDKAPI>26</minimumSDKAPI>
+  <gameActivityFinalizeConfigRulesAdditions><insert>
+// Native Experiences cover GameActivity. Keep the renderer independent of its
+// suspended window so Nuxie's scoped game-thread callbacks can complete.
+variables.put("EnableNewBackgroundBehavior", "true");
+  </insert></gameActivityFinalizeConfigRulesAdditions>
   <gradleCopies>
     <copyFile src="$S(PluginDir)/lib/nuxie-unreal-bridge.aar" dst="$S(BuildDir)/gradle/app/libs/nuxie-unreal-bridge.aar" />
     <copyFile src="$S(PluginDir)/../../NATIVE-PINS.json" dst="$S(BuildDir)/gradle/app/nuxie-native-pins.json" />

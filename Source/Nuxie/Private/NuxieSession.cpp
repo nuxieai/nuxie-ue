@@ -3,8 +3,32 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/Guid.h"
 #include "Misc/DateTime.h"
+#include "Containers/Queue.h"
+#include <atomic>
 namespace {
 TSharedPtr<FNuxieSession> NativeOwner;
+TQueue<TFunction<void()>, EQueueMode::Mpsc> DeferredCallbacks;
+std::atomic<int32> DeferredCount{0};
+std::atomic<bool> DeferredTickerPending{false};
+uint64 DeferredFrame = MAX_uint64;
+int32 DeferredDispatchedThisFrame = 0;
+void ScheduleDeferredTicker() {
+  if (DeferredTickerPending.exchange(true)) return;
+  FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float) {
+    if (DeferredFrame != GFrameCounter) { DeferredFrame = GFrameCounter; DeferredDispatchedThisFrame = 0; }
+    TFunction<void()> Callback;
+    while (DeferredDispatchedThisFrame < 256 && DeferredCallbacks.Dequeue(Callback)) {
+      ++DeferredDispatchedThisFrame;
+      DeferredCount.fetch_sub(1);
+      Callback();
+    }
+    if (DeferredCount.load() > 0) return true;
+    DeferredTickerPending.store(false);
+    // Cover an arrival racing the transition to idle.
+    if (DeferredCount.load() > 0) ScheduleDeferredTicker();
+    return false;
+  }));
+}
 #if WITH_DEV_AUTOMATION_TESTS
 TFunction<TUniquePtr<INuxieNativeTransport>()> TestTransport;
 #endif
@@ -38,8 +62,15 @@ FNuxieSession::~FNuxieSession() {
   FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Remove(ForegroundHandle);
 }
 void FNuxieSession::Defer(TFunction<void()> Callback) {
-  FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Callback = MoveTemp(Callback)](float) mutable { Callback(); return false; }));
+  DeferredCount.fetch_add(1);
+  DeferredCallbacks.Enqueue(MoveTemp(Callback));
+  ScheduleDeferredTicker();
+#if PLATFORM_ANDROID
+  WakeNuxieAndroidDispatcher();
+#endif
 }
+bool FNuxieSession::HasDeferredCallbacks() { return DeferredCount.load() > 0; }
+bool FNuxieSession::HasNativeOwner() { check(IsInGameThread()); return NativeOwner.IsValid(); }
 void FNuxieSession::Start() {
   TWeakPtr<FNuxieSession> Weak = AsShared();
   Ticker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak](float Delta) { auto Self = Weak.Pin(); return Self && Self->Tick(Delta); }));

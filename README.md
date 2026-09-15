@@ -161,7 +161,9 @@ OnAppAction → switch Action.Name
 
 `Trigger` acknowledges native event acceptance. Eligibility and Journey state decide whether an Experience appears. Observe `OnActivity` for runtime activity and `OnAppAction` for authored actions delegated to your game. `Dismiss` requests dismissal.
 
-Native Experiences appear above Unreal's viewport. Your game owns pause, input, and audio policy. The bridge dispatcher uses the core ticker and continues when gameplay is paused; OS suspension can delay callbacks.
+`OnActivity` belongs to the current customer and SDK session. The bridge checks the native capture-time identity before forwarding, and queued Unreal callbacks retain their session and identity generation. Activity from before Identify, Reset, or shutdown cannot become current again after switching back to the same customer. Native durable analytics retain their original attribution; filtering a stale gameplay callback does not erase that history.
+
+Native Experiences appear above Unreal's viewport. Your game owns pause, input, and audio policy. The bridge dispatcher continues when gameplay is paused. On Android, the plugin enables Unreal's `EnableNewBackgroundBehavior` window mode and briefly wakes the game thread to deliver native replies and App Actions while an Experience covers the game. Keep that setting enabled; no generated GameActivity edits are needed. Actual OS suspension can still delay callbacks.
 
 `FNuxieActivity.Properties` and `FNuxieAppAction.Payload` contain typed `FNuxieScalar` values. Branch on `Kind` to read String, Integer64, Double, or Boolean. Native integer properties retain their full signed 64-bit range. `bHasPayload` distinguishes an absent app-action payload from an empty map.
 

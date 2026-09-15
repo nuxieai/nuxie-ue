@@ -26,6 +26,7 @@ class NuxieUnrealRuntime(activity: android.app.Activity, private val callback: C
   private val purchases = NuxiePurchaseDelegateBridge(emitEvent = { name, value -> send(name, value) })
   private val listener = object : NuxieListener {
     override fun onActivityEmitted(sdk: Nuxie, info: NuxieActivityInfo) {
+      if (!info.isCurrentIdentity) return
       send("activity", mapOf("schemaVersion" to NuxieActivityInfo.SCHEMA_VERSION,
         "id" to info.id, "timestampMs" to info.timestampMillis, "receivedAtMs" to info.receivedAtMillis,
         "name" to info.name, "properties" to info.properties.mapValues { (_, v) -> when(v) {
@@ -139,7 +140,7 @@ class NuxieUnrealRuntime(activity: android.app.Activity, private val callback: C
   }
   private fun shutdown(session: String, promise: Promise) = run(promise, session) {
     snapshotJob?.cancel(); purchases.cancelPending("shutdown")
-    withContext(Dispatchers.Default) { Nuxie.shutdown() }
+    withContext(Dispatchers.Default) { Nuxie.shutdownAndAwait() }
     if (Nuxie.listener === listener) Nuxie.listener = null
     this.session = null; owner.clear(); configurationKey = null; null
   }

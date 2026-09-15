@@ -27,13 +27,10 @@ android = checkout('android', pins['android']['repository'], pins['android']['re
 init = scratch / 'publish.gradle'
 init.write_text('''allprojects { project ->
   if (project.name == 'nuxie-android') {
-    project.pluginManager.withPlugin('com.android.library') {
-      project.pluginManager.apply('maven-publish')
-      project.android.publishing { singleVariant('release') }
+    project.pluginManager.withPlugin('maven-publish') {
       project.afterEvaluate {
         project.publishing {
-          publications { nuxie(MavenPublication) {
-            from project.components.release
+          publications { named('release', MavenPublication) {
             groupId = 'ai.nuxie'; artifactId = 'nuxie-android'
             version = '0.2.0-''' + pins['android']['revision'] + ''''
           } }
@@ -44,7 +41,7 @@ init.write_text('''allprojects { project ->
   }
 }
 ''')
-run(['./gradlew', '-I', str(init), ':nuxie-android:publishNuxiePublicationToPackageRepository'], android,
+run(['./gradlew', '-I', str(init), ':nuxie-android:publishReleasePublicationToPackageRepository'], android,
     dict(os.environ, NUXIE_UNREAL_MAVEN=str(scratch / 'maven')))
 run(['./gradlew', ':bridge:testDebugUnitTest', ':bridge:prepareBridgeAar'], root / 'ThirdParty/Android')
 

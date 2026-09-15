@@ -16,6 +16,7 @@ final class NuxieDelegateBridge: NuxieDelegate {
   }
 
   func nuxieDidEmit(_ info: NuxieActivityInfo) {
+    guard info.isCurrentIdentity else { return }
     emit(
       "activity",
       [
