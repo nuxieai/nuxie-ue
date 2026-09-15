@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from native_receipt import validate as validate_native_receipt
 
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser()
@@ -24,12 +25,10 @@ for platform in ('IOS', 'Android'):
     receipt = json.loads((root / f'ThirdParty/{platform}/lib/receipt.json').read_text())
     if platform == 'IOS' and receipt.get('configuration') != 'Release':
         raise SystemExit('Distribution requires Release iOS artifacts; run bash ThirdParty/IOS/scripts/build-framework.sh without the Debug override.')
-    for section in ('inputs', 'artifacts'):
-        for relative, expected in receipt[section].items():
-            path = (root / relative).resolve()
-            if not path.is_relative_to(root) or not path.is_file(): raise SystemExit('Missing native input: ' + relative)
-            with path.open('rb') as stream: actual = hashlib.file_digest(stream, 'sha256').hexdigest()
-            if actual != expected: raise SystemExit('Rebuild stale native input/artifact: ' + relative)
+    try:
+        validate_native_receipt(root, platform.lower(), receipt)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 (root / '.native').mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='package-', dir=root / '.native') as temporary:
     stage = Path(temporary) / 'Nuxie'

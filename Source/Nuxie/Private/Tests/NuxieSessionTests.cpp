@@ -1,6 +1,7 @@
 #include "Misc/AutomationTest.h"
 #if WITH_DEV_AUTOMATION_TESTS
 #include "NuxieSession.h"
+#include "NuxieObserveFeature.h"
 #include "Engine/GameInstance.h"
 #include "UObject/StrongObjectPtr.h"
 
@@ -53,7 +54,7 @@ class FLifecycleCommand : public IAutomationLatentCommand {
   TStrongObjectPtr<UNuxieSubsystem> B{NewObject<UNuxieSubsystem>(InstanceB.Get())};
   FNuxieOptions Options;
   int32 Phase = 0, SetupReplies = 0, BurstReplies = 0, BurstRejected = 0;
-  bool bIdentityOverloaded = false;
+  bool bIdentityOverloaded = false, bAfterTeardown = false, bNextOwner = false;
   bool bOtherRejected = false, bIdentified = false, bQueryFinished = false, bReset = false, bConsumed = false, bTimedOut = false, bShutdown = false, bReconfigured = false;
   double Started = FPlatformTime::Seconds();
 public:
@@ -123,7 +124,19 @@ public:
     } else if (Phase == 11 && BurstReplies + BurstRejected == 65 && bIdentityOverloaded) {
       Test->TestEqual(TEXT("reserved admission settles every accepted operation"), BurstReplies, 64);
       Test->TestEqual(TEXT("excess operation rejected"), BurstRejected, 1);
-      A->Shutdown(FNuxieCompletion::CreateLambda([this](const FNuxieResult&) { bShutdown = true; })); Phase = 8;
+      A->CheckFeature(TEXT("energy"), FNuxieFeatureQuery(), FNuxieFeatureCompletion::CreateLambda([this](const TNuxieResult<FNuxieFeatureAccess>&) { bAfterTeardown = true; }));
+      A->Configure(Options, FNuxieCompletion::CreateLambda([this](const FNuxieResult&) { bAfterTeardown = true; }));
+      A->CheckFeature(TEXT(""), FNuxieFeatureQuery(), FNuxieFeatureCompletion::CreateLambda([this](const TNuxieResult<FNuxieFeatureAccess>&) { bAfterTeardown = true; }));
+      A->Deinitialize();
+      Fixture->ReleaseQuery();
+      Test->TestFalse(TEXT("deinitialization fences pending gameplay callbacks immediately"), bAfterTeardown);
+      Phase = 12;
+    } else if (Phase == 12 && !FNuxieSession::HasNativeOwner()) {
+      Test->TestFalse(TEXT("late native query cannot reach a deinitialized but still alive UObject"), bAfterTeardown);
+      B->Configure(Options, FNuxieCompletion::CreateLambda([this](const FNuxieResult& R) { Test->TestTrue(TEXT("teardown drains native ownership for the next game instance"), R.IsSuccess()); bNextOwner = true; }));
+      Phase = 13;
+    } else if (Phase == 13 && bNextOwner) {
+      B->Shutdown(FNuxieCompletion::CreateLambda([this](const FNuxieResult&) { bShutdown = true; })); Phase = 8;
     }
     return false;
   }
@@ -163,4 +176,32 @@ public:
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNuxieDeferredBudget, "Nuxie.Contract.DeferredBudget", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FNuxieDeferredBudget::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FDeferredBudgetCommand(this)); return true; }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNuxieFeatureObserver, "Nuxie.Contract.FeatureObserver", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FNuxieFeatureObserver::RunTest(const FString&) {
+  TStrongObjectPtr<UGameInstance> Instance(NewObject<UGameInstance>());
+  Instance->Init();
+  auto* Client = Instance->GetSubsystem<UNuxieSubsystem>();
+  TStrongObjectPtr<UNuxieObserveFeature> Energy(UNuxieObserveFeature::ObserveFeature(Instance.Get(), TEXT("energy")));
+  TStrongObjectPtr<UNuxieObserveFeature> Coins(UNuxieObserveFeature::ObserveFeature(Instance.Get(), TEXT("coins")));
+  Energy->Activate(); Coins->Activate();
+  TestTrue(TEXT("new observer reports unknown access"), Energy->State.Kind == ENuxieFeatureStateKind::Unknown && !Energy->State.bHasAccess);
+  FNuxieFeatureSnapshot Snapshot;
+  Snapshot.Kind = ENuxieFeatureStateKind::Ready;
+  Snapshot.CustomerId = TEXT("alice"); Snapshot.IdentityGeneration = TEXT("2"); Snapshot.Revision = TEXT("9007199254740993");
+  FNuxieFeatureAccess Access; Access.bHasBalance = true; Access.Balance = 0; Access.bAllowed = false;
+  Snapshot.All.Add(TEXT("energy"), Access);
+  Client->OnFeaturesChanged.Broadcast(Snapshot);
+  TestTrue(TEXT("zero balance remains present in selected feature"), Energy->State.bHasAccess && Energy->State.Access.bHasBalance && Energy->State.Access.Balance == 0);
+  TestFalse(TEXT("another feature remains missing, not denied"), Coins->State.bHasAccess);
+  TestEqual(TEXT("observer retains exact revision"), Energy->State.Revision, Snapshot.Revision);
+  TestEqual(TEXT("observer retains customer"), Energy->State.CustomerId, Snapshot.CustomerId);
+  Energy->Cancel();
+  Client->OnFeaturesChanged.Broadcast(FNuxieFeatureSnapshot());
+  TestTrue(TEXT("cancelled observer no longer receives updates"), Energy->State.Kind == ENuxieFeatureStateKind::Ready);
+  TestTrue(TEXT("active observer receives identity invalidation"), Coins->State.Kind == ENuxieFeatureStateKind::Unknown && Coins->State.CustomerId.IsEmpty());
+  Instance->Shutdown();
+  Client->OnFeaturesChanged.Broadcast(Snapshot);
+  TestTrue(TEXT("game-instance teardown cancels remaining observers while objects remain alive"), Coins->State.Kind == ENuxieFeatureStateKind::Unknown);
+  return true;
+}
 #endif

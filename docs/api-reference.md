@@ -17,6 +17,8 @@ Include `NuxieSubsystem.h` and obtain the subsystem from your `UGameInstance`. A
 
 Each async Blueprint node has typed Success and Failure delegates. The C++ completion types use Unreal `TDelegate` and support `CreateWeakLambda`.
 
+`Observe Nuxie Feature(FeatureId)` returns a cancellable observer and typed `StateChanged` events, including readiness, missing access, customer, generation and revision. Bind before activation; cancel on widget destruction. Subsystem teardown cancels it automatically.
+
 Synchronous reads: `GetStatus`, `GetFeatureSnapshot`, `GetFeatureState`.
 
 Events: `OnStatusChanged`, `OnIdentityChanged`, `OnFeaturesChanged`, `OnActivity`, `OnAppAction`, `OnError`.

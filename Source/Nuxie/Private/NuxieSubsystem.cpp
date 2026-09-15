@@ -9,24 +9,33 @@ void Fail(FNuxieCompletion Completion, FNuxieError Error) { FNuxieSession::Defer
 FNuxieSession::FReply VoidReply(FNuxieCompletion Completion) { return [Completion](NuxieWire::FObject, FNuxieError Error) { FNuxieResult Result; Result.Error = Error; Completion.ExecuteIfBound(Result); }; }
 bool Nonempty(const FString& Value) { return !Value.TrimStartAndEnd().IsEmpty(); }
 }
-void UNuxieSubsystem::Initialize(FSubsystemCollectionBase& Collection) { Super::Initialize(Collection); }
+void UNuxieSubsystem::Initialize(FSubsystemCollectionBase& Collection) { Super::Initialize(Collection); CompletionLifetime = MakeShared<bool>(true); }
 void UNuxieSubsystem::Deinitialize() {
+  *CompletionLifetime = false;
+  OnDeinitializing.Broadcast();
+  OnDeinitializing.Clear();
   InvalidateCheckout();
-  if (Session) Session->Shutdown(FNuxieCompletion());
+  if (Session) Session->DetachOwner();
+  PurchaseController = nullptr;
   Session.Reset();
   Super::Deinitialize();
 }
-void UNuxieSubsystem::Configure(const FNuxieOptions& Options, FNuxieCompletion Completion) { FNuxieSession::Configure(this, Options, MoveTemp(Completion)); }
-void UNuxieSubsystem::Shutdown(FNuxieCompletion Completion) { FNuxieSession::ShutdownFor(this, MoveTemp(Completion)); }
+void UNuxieSubsystem::Configure(const FNuxieOptions& Options, FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion)); FNuxieSession::Configure(this, Options, MoveTemp(Completion)); }
+void UNuxieSubsystem::Shutdown(FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion)); FNuxieSession::ShutdownFor(this, MoveTemp(Completion)); }
 void UNuxieSubsystem::Identify(const FString& CustomerId, const FNuxieIdentityOptions& Options, FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   if (!Nonempty(CustomerId)) { Fail(Completion, Invalid(TEXT("Customer ID must not be empty."))); return; }
   if (!Session) { Fail(Completion, NotConfigured()); return; }
   auto Properties = Args(); Properties->SetObjectField(TEXT("properties"), NuxieWire::Object(Options.Properties.ToJson())); Properties->SetObjectField(TEXT("propertiesSetOnce"), NuxieWire::Object(Options.PropertiesSetOnce.ToJson()));
   auto Arguments = Args(); Arguments->SetStringField(TEXT("customerId"), CustomerId); Arguments->SetStringField(TEXT("properties"), NuxieWire::Json(Properties));
   Session->ChangeIdentity(TEXT("identify"), Arguments, MoveTemp(Completion));
 }
-void UNuxieSubsystem::Reset(FNuxieCompletion Completion) { if (Session) Session->ChangeIdentity(TEXT("reset"), Args(), MoveTemp(Completion)); else Fail(Completion, NotConfigured()); }
+void UNuxieSubsystem::Reset(FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion)); if (Session) Session->ChangeIdentity(TEXT("reset"), Args(), MoveTemp(Completion)); else Fail(Completion, NotConfigured()); }
 void UNuxieSubsystem::GetIdentity(FNuxieIdentityCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   if (!Session) { FNuxieSession::Defer([Completion]() { Completion.ExecuteIfBound(TNuxieResult<FNuxieIdentity>::Failure(NotConfigured())); }); return; }
   Session->Call(TEXT("getIdentity"), Args(), false, [Completion](NuxieWire::FObject Value, FNuxieError Error) {
     FNuxieIdentity Identity;
@@ -35,6 +44,7 @@ void UNuxieSubsystem::GetIdentity(FNuxieIdentityCompletion Completion) {
   });
 }
 void UNuxieSubsystem::CheckFeature(const FString& FeatureId, const FNuxieFeatureQuery& Query, FNuxieFeatureCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   FNuxieError Error;
   if (!Nonempty(FeatureId) || !nuxie::quantity(Query.RequiredBalance)) Error = Invalid(TEXT("A feature ID and required balance between 1 and 2^53-1 are required."));
   else if (!Session) Error = NotConfigured();
@@ -49,6 +59,7 @@ void UNuxieSubsystem::CheckFeature(const FString& FeatureId, const FNuxieFeature
   });
 }
 void UNuxieSubsystem::ConsumeFeature(const FString& FeatureId, const FNuxieFeatureCommand& Command, FNuxieConsumeCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   FNuxieError Error;
   if (!Nonempty(FeatureId) || !Nonempty(Command.OperationId) || !nuxie::quantity(Command.Quantity)) Error = Invalid(TEXT("Feature ID, saved operation ID, and quantity between 1 and 2^53-1 are required."));
   else if (!Session) Error = NotConfigured();
@@ -64,13 +75,16 @@ void UNuxieSubsystem::ConsumeFeature(const FString& FeatureId, const FNuxieFeatu
   });
 }
 void UNuxieSubsystem::Trigger(const FString& EventName, const FNuxieProperties& Properties, FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   if (!Nonempty(EventName) || EventName.StartsWith(TEXT("$"))) { Fail(Completion, Invalid(TEXT("Use a nonempty customer event name without the reserved $ prefix."))); return; }
   if (!Session) { Fail(Completion, NotConfigured()); return; }
   auto Arguments = Args(); Arguments->SetStringField(TEXT("event"), EventName); Arguments->SetStringField(TEXT("properties"), Properties.ToJson());
   Session->Call(TEXT("trigger"), Arguments, false, VoidReply(MoveTemp(Completion)));
 }
-void UNuxieSubsystem::Dismiss(FNuxieCompletion Completion) { if (Session) Session->Call(TEXT("dismiss"), Args(), false, VoidReply(MoveTemp(Completion))); else Fail(Completion, NotConfigured()); }
+void UNuxieSubsystem::Dismiss(FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion)); if (Session) Session->Call(TEXT("dismiss"), Args(), false, VoidReply(MoveTemp(Completion))); else Fail(Completion, NotConfigured()); }
 void UNuxieSubsystem::SetLocale(const FString& Locale, FNuxieCompletion Completion) {
+  Completion = GuardCompletion(MoveTemp(Completion));
   if (!Session) { Fail(Completion, NotConfigured()); return; }
   auto Arguments = Args();
   if (!Locale.IsEmpty()) Arguments->SetStringField(TEXT("locale"), Locale);
@@ -79,10 +93,7 @@ void UNuxieSubsystem::SetLocale(const FString& Locale, FNuxieCompletion Completi
 FNuxieStatus UNuxieSubsystem::GetStatus() const { return Session ? Session->Status : FNuxieStatus(); }
 FNuxieFeatureSnapshot UNuxieSubsystem::GetFeatureSnapshot() const { return Session ? Session->Features : FNuxieFeatureSnapshot(); }
 FNuxieFeatureState UNuxieSubsystem::GetFeatureState(const FString& FeatureId) const {
-  const auto Snapshot = GetFeatureSnapshot(); FNuxieFeatureState State;
-  State.Kind = Snapshot.Kind; State.CustomerId = Snapshot.CustomerId; State.IdentityGeneration = Snapshot.IdentityGeneration; State.Revision = Snapshot.Revision;
-  if (const auto Access = Snapshot.All.Find(FeatureId)) { State.bHasAccess = true; State.Access = *Access; }
-  return State;
+  return GetFeatureSnapshot().Select(FeatureId);
 }
 void UNuxieSubsystem::InvalidateCheckout() {
   for (auto Request : Purchases) if (Request) Request->bPending = false;

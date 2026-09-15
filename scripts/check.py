@@ -20,6 +20,8 @@ if (version['MajorVersion'], version['MinorVersion']) != (5, 8):
 def run(args, cwd=root, env=None):
     subprocess.run([str(arg) for arg in args], cwd=cwd, env=env, check=True)
 
+run(['python3', root / 'scripts/test-native-receipt.py'])
+
 with tempfile.TemporaryDirectory(prefix='nuxie-contract-') as temporary:
     binary = Path(temporary) / 'request-ledger'
     run(['clang++', '-std=c++20', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', root / 'Tests/request-ledger.cpp', '-o', binary])

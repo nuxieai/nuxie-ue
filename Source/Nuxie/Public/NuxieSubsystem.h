@@ -42,8 +42,17 @@ public:
   UPROPERTY(BlueprintAssignable, Category="Nuxie") FNuxieErrorEvent OnError;
 private:
   friend class FNuxieSession;
+  friend class UNuxieObserveFeature;
+  FSimpleMulticastDelegate OnDeinitializing;
   friend class UNuxiePurchaseRequest;
   friend class UNuxieRestoreRequest;
+  TSharedPtr<bool> CompletionLifetime = MakeShared<bool>(true);
+  template<typename TCompletion> TCompletion GuardCompletion(TCompletion Completion) const {
+    return TCompletion::CreateLambda([Lifetime = TWeakPtr<bool>(CompletionLifetime), Completion = MoveTemp(Completion)](const auto& Result) {
+      const auto Active = Lifetime.Pin();
+      if (Active && *Active) Completion.ExecuteIfBound(Result);
+    });
+  }
   TSharedPtr<FNuxieSession> Session;
   UPROPERTY() TObjectPtr<UObject> PurchaseController;
   UPROPERTY() TArray<TObjectPtr<UNuxiePurchaseRequest>> Purchases;
