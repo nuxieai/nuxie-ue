@@ -23,13 +23,17 @@ Missing tools fail the gate. TypeScript checks do not apply to this native SDK c
 
 ## Current fixes and focused evidence
 
-Qualification uses UE 5.8.2 on Mac arm64, an Android API 36 arm64 emulator, and a physical iPhone 17 Pro Max. Current native pins are iOS `d18e51c6f9ead5e4616bfb24f313512107476156` and Android `b32c9fdba42cb15af48c745ac8c2b1640f4c7708`.
+Qualification uses UE 5.8.2 on Mac arm64, an Android API 36 arm64 emulator, and a physical iPhone 17 Pro Max. Current native pins are iOS `f54152c79b26005f902a2487f863ae6f182a3714` and Android `b32c9fdba42cb15af48c745ac8c2b1640f4c7708`.
 
 ### Identity and restore
 
 [UNIV-3175](https://universe.basis.dev/issue/UNIV-3175) is implemented in [iOS PR #429](https://github.com/nuxieai/nuxie-ios/pull/429) and [Android PR #111](https://github.com/nuxieai/nuxie-android/pull/111). Native activities expose their final durable customer attribution and capture-time identity-session currency. The Unreal bridges discard activities whose native identity is no longer current. Native tests cover A → B → A, reset, shutdown, delayed delivery, and final attribution changed by `beforeSend`. Both native readiness gates passed on the revisions above; final Unreal integration qualification remains separate.
 
 [UNIV-3181](https://universe.basis.dev/issue/UNIV-3181) was reproduced by tapping an authored Restore control when Play Billing was unavailable. A connection exception escaped the native coroutine and killed the host. Android now returns and emits the correlated restore failure while preserving cancellation. The connection-failure regression failed before the fix; all 80 `PurchaseServiceTest` tests passed afterwards. The complete Android readiness gate then passed: `git diff --check origin/main...HEAD` and `./gradlew :nuxie-android:test :nuxie-android:apiCheck :nuxie-android:lint :example-app:assembleDebug`.
+
+### Feature queries after identity changes
+
+[UNIV-3187](https://universe.basis.dev/issue/UNIV-3187) was reproduced on the physical iPhone: a remote entity query immediately after reset and re-identification could throw `CancellationError`. Delayed identity work cleared the cache generation after the query had already adopted the current customer. The iOS fix synchronizes cache ownership by the native identity fence, resynchronizes after MainActor yields, and fences feature publication and query completion. Regression tests cover delayed transitions, A → B → A before queued work, admission races, and identity-changing feature observers. Standards and spec reviews are clear; the full iOS native gate passed on the pin above. Rebuilt Unreal device qualification for this pin is still required.
 
 ### Android callbacks during native presentation
 
