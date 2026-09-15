@@ -60,9 +60,19 @@ Two additional development-only options exercise the game's presentation policy 
 
 ## Prepared consumer evidence
 
-Commit `f753f7d` passed the complete local readiness gate. Its Release iOS archives and prepared plugin built for IOS, Android and Mac; all 285 manifest file hashes verified. A fresh content-only consumer copied that plugin and packaged successfully for Android and iOS. Android executed the real Blueprint unconfigured-error branch on the emulator. iOS passed strict recursive codesign verification, installed on the physical phone, and executed that branch at 16:03:42.350 UTC. These runs prove prepared-module startup and async delivery, not configured backend success. Subsequent Lab-only qualification controls do not alter the plugin runtime; a new committed-candidate readiness receipt is still required.
+Commit `f753f7d` passed the complete local readiness gate. Its Release iOS archives and prepared plugin built for IOS, Android and Mac; all 285 manifest file hashes verified. A fresh content-only consumer copied that plugin and packaged successfully for Android and iOS. Android executed the real Blueprint unconfigured-error branch on the emulator. iOS passed strict recursive codesign verification, installed on the physical phone, and executed that branch at 16:03:42.350 UTC. These runs prove prepared-module startup and async delivery, not configured backend success. The subsequent Lab-only qualification controls do not alter the plugin runtime; the full readiness gate also passed on `fa43fb2`.
+
+A subsequent Android consumer build configured the same prepared plugin with a local development public key and a localhost-only network exception. Its real Blueprint identity-success branch executed at 16:23:20.204 UTC. Native persisted authority matched test app `app_01m2hxd0ezjqp1jnz807hxkb86`; its release-pinned Journey retained version `ver_01m2jqapeyjmaq5m0jvgcafwjd` and artifact digests. The published Experience rendered, and tapping its authored Close returned to Unreal. The equivalent configured iOS proof remains outstanding.
+
+The current iOS Lab (`fa43fb2`) also built, passed strict recursive signing verification, and installed. Its subsequent launch was denied because the phone was locked; no new lifecycle result is claimed.
 
 The Android Lab APK identified above also passed v2 signature verification, ZIP 16 KiB alignment and ELF load-segment alignment/congruence checks across all nine shared libraries.
+
+## External restore evidence
+
+On Android, the external restore reached the retained C++ controller while the Experience covered paused gameplay at 16:27:55.220 UTC. Its 60-second native deadline produced the authored failure route and released pause at 16:28:55.280. Inspection then reported no pending restore, and a late completion was rejected.
+
+A second restore remained pending after presentation dismissal. SDK shutdown completed at 16:30:11.944, invalidated the retained request, and rejected a subsequent completion. These checks validate external-controller delivery, expiry and teardown; they do not establish a store purchase, restored entitlement, or the other purchase/restore outcomes.
 
 ## Earlier evidence: useful, not final-candidate qualification
 
@@ -77,9 +87,9 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 ## Remaining qualification
 
 - Final iOS Lab manual/lifecycle/Experience/App Action/dismissal checks after the current changes.
-- iOS: preservation of a game-owned pause and map travel while presenting. Both platforms: external billing success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, timeout, teardown, and selected offer fidelity.
+- iOS: preservation of a game-owned pause and map travel while presenting. Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
 - Real App Store and Google Play sandbox purchase and restore against the backend. Existing apps are Apple Nuxie Staging (`ai.nuxie.ios.staging`) and Play Nuxie Staging (`ai.nuxie.example`); Play product `nuxie_qualification` / base plan `monthly` is active. Locating these settings, a synthetic Purchased completion, and the unavailable-billing failure check are not store purchase evidence.
-- Configured backend success in the fresh prepared Blueprint-only iOS/Android consumers using the committed explicit identifiers; startup and packaging evidence is recorded above.
+- Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
 
 Use a disposable local app/customer with finite grants for backend checks. The Lab writes `Saved/NuxieLab/validation.json`, checks two distinct entities, persists pending operation IDs and gameplay application, and assumes no concurrent consumers. Distinguish request acceptance, presentation, and verified store outcomes.
