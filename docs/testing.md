@@ -154,7 +154,7 @@ The local backend imported the active `nuxie_qualification` subscription with ba
 | Acknowledgement and access | Evidence was synced and Play-acknowledged; Unreal returned to Ready at 17:29:54.778 and emitted `purchase_synced` at 17:29:54.826; a fresh backend profile contained `unreal_play_access` |
 | Real Play restore | The same customer and subscription produced `restore_completed` and `unreal_play_restored` at 17:34:35.685, completing the Journey and returning to the Lab |
 
-These observations come from the Unreal application, not the earlier native example's retained purchase history. They qualify the managed Play purchase/restore path. The current test Experience also displayed the live localized price `$0.99` on 2026-09-15 at 18:52 UTC, through `paywall.selectedProduct.price` (version `ver_01m2k6hp2srzeepx1zndsyxgzg`). The later candidate and RTDN evidence below supersede this older purchase run. The iOS external-controller matrix and App Store sandbox qualification remain outstanding.
+These observations come from the Unreal application, not the earlier native example's retained purchase history. They qualify the managed Play purchase/restore path. The current test Experience also displayed the live localized price `$0.99` on 2026-09-15 at 18:52 UTC, through `paywall.selectedProduct.price` (version `ver_01m2k6hp2srzeepx1zndsyxgzg`). The later candidate and RTDN evidence below supersede this older purchase run. The current iOS controller results and remaining App Store qualification are recorded below.
 
 ## Current Android package and authenticated RTDN
 
@@ -195,7 +195,7 @@ not change the prepared plugin's runtime.
 
 ## Apple sandbox startup
 
-The `fa43fb2` Lab was packaged with the existing Apple sandbox development profile for `ai.nuxie.ios.staging`, passed strict signature verification, and installed on the physical phone. A supported clean install fetched its local backend profile and presented the signed native Experience at 18:38:33.970 UTC. A warm relaunch fetched the profile in 2.8 seconds and presented again at 18:39:00.071. The real StoreKit sheet displayed Sandbox, the monthly $0.99 product, and an explicit no-charge notice. Purchase authentication and backend reconciliation are not yet qualified.
+The `fa43fb2` Lab was packaged with the existing Apple sandbox development profile for `ai.nuxie.ios.staging`, passed strict signature verification, and installed on the physical phone. A supported clean install fetched its local backend profile and presented the signed native Experience at 18:38:33.970 UTC. A warm relaunch fetched the profile in 2.8 seconds and presented again at 18:39:00.071. The real StoreKit sheet displayed Sandbox, the monthly $0.99 product, and an explicit no-charge notice. A subsequent no-charge sandbox purchase completed at 20:42:02.446 UTC and delivered the authored purchased route, completed the Journey, and released pause. Backend reconciliation returned HTTP 503 `prior_lineage_required`: Apple retained an older original transaction, and the local backend lacks its initial-purchase anchor. The latest transaction matches the current customer token, while the original transaction does not. Recovery is tracked in [UNIV-3184](https://universe.basis.dev/issue/UNIV-3184). This proves the StoreKit purchase callback, not a verified backend entitlement or successful restore.
 
 Installing over the retired native test host initially retained an unsupported schema-v1 event database. The SDK deliberately requires v2; the unclear failure propagation is tracked separately in [UNIV-3183](https://universe.basis.dev/issue/UNIV-3183). The old test data was preserved before a clean install. The successful cold/warm checks use the supported schema, with no migration or bypass. Temporary diagnostic source changes were removed.
 
@@ -209,10 +209,22 @@ Prepared archive `prepared-all-v6` previously built for IOS, Android, and Mac. E
 
 The installed Epic distribution lacks iOS-simulator third-party link inputs, beginning with PLCrashReporter. Swift bridge simulator tests are supported; a full Unreal simulator player is not claimed as passing.
 
+## Current iOS Lab and controller checks
+
+The updated Lab passed metered validation at 21:16:20.095 UTC: one debit, one saved gameplay action, exact replay, and unchanged comparison entity. Operation ID: `CEC934BC194E30B6F82CB9912BCF66FA`. The separate lifecycle pass at 20:56:09.757 ended on `LabSecond`.
+
+The updated `be6f3ca` Lab with runtime `5684788` passed external purchase
+`cancelled` (20:50:40.537 UTC), `failed` (20:55:14.570), `pending`
+(21:02:29.081), and `purchased` (21:03:03.318) on 2026-09-15. Each fresh
+device report passed the public checker, including invalid-outcome rejection,
+pending retention after invalid input, valid completion acceptance, and duplicate
+rejection. These are simulated controller outcomes, not additional StoreKit
+purchases or backend grants. All three restore outcomes passed: `restored` at 21:05:11.137 UTC, `noPurchases` at 21:10:59.449, and `failed` at 21:11:49.687. A retained restore request at 21:12:15.856 expired at 21:13:16.664, delivered its authored failure route, completed the Journey and released pause. The retained purchase request at 21:14:39.605 expired at 21:15:39.975 with the same failure-route, Journey-completion and pause-release behavior. Late completion rejection and teardown still need their device checks.
+
 ## Remaining qualification
 
-- Diagnose the first-run iOS lifecycle failure. The Lab now reports query errors separately from successful responses without a finite balance; the diagnostic change still needs its device rerun. Subsequent lifecycle/debit passes do not explain that intermittent result. Physical Lab touch input passed; use direct touch for Unreal controls that Mirroring does not forward.
-- Complete the iOS external billing outcome matrix, including expiry/teardown. Android outcome, product/base-plan, expiry and teardown checks passed on the patched runtime; timestamps and APK identity are recorded above.
+- Diagnose the first-run iOS lifecycle failure. The Lab now reports query errors separately from successful responses without a finite balance. The updated `be6f3ca` Lab passed the lifecycle run on the physical iPhone at 20:56:09.757 UTC, ending on `LabSecond`. Subsequent lifecycle/debit passes do not explain that intermittent result. Physical Lab touch input passed; use direct touch for Unreal controls that Mirroring does not forward.
+- Complete iOS external-controller teardown and late-completion checks; all seven outcome reports and both deadline routes now pass. Android outcome, product/base-plan, expiry and teardown checks passed on the patched runtime; timestamps and APK identity are recorded above.
 - Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Authenticated Play RTDN delivery and current managed purchase/restore passed. Earlier live-price evidence is recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
