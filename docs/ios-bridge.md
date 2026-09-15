@@ -4,4 +4,4 @@ Swift directly imports the exact SDK revision in `NATIVE-PINS.json`. C exports p
 
 `ThirdParty/IOS/scripts/build-framework.sh` prepares separate device and arm64 simulator framework archives and includes `Nuxie_Nuxie.bundle`. The module rule selects the simulator artifact for `UnrealArch.IOSSimulator`. Build and test through Xcode, not a host `swift build`.
 
-The debug-only endpoint override is `NUXIE_UNREAL_API_ENDPOINT`. Release builds retain native environment configuration. Packaged qualification must verify framework embedding, native runtime symbols, resources, Experience rendering, and warm-start behavior.
+A non-Shipping Unreal host configured for Development can pass `NUXIE_UNREAL_API_ENDPOINT` through the private configuration wire, even with the prepared Release framework. Shipping hosts retain native environment configuration. Packaged qualification must verify framework embedding, native runtime symbols, resources, Experience rendering, and warm-start behavior.

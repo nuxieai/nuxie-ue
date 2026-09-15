@@ -3,6 +3,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/Guid.h"
 #include "Misc/DateTime.h"
+#include "HAL/PlatformMisc.h"
 #include "Containers/Queue.h"
 #include <atomic>
 namespace {
@@ -105,6 +106,13 @@ if (!NativeAvailable()) {
   if (!Options.Locale.IsEmpty()) Config->SetStringField(TEXT("localeIdentifier"), Options.Locale);
   Config->SetStringField(TEXT("purchaseHandlingMode"), External ? TEXT("observer") : TEXT("full"));
   Config->SetBoolField(TEXT("externalBilling"), External);
+#if PLATFORM_IOS && !UE_BUILD_SHIPPING
+  // The host build controls local development, including with a prepared Release bridge.
+  if (Options.Environment == ENuxieEnvironment::Development) {
+    const FString Endpoint = FPlatformMisc::GetEnvironmentVariable(TEXT("NUXIE_UNREAL_API_ENDPOINT"));
+    if (!Endpoint.IsEmpty()) Config->SetStringField(TEXT("testingApiEndpoint"), Endpoint);
+  }
+#endif
   const FString Configuration = NuxieWire::Json(Config);
   if (NativeOwner) {
     auto Existing = NativeOwner;

@@ -1,10 +1,6 @@
 import Foundation
 import Combine
-#if DEBUG
 @_spi(Testing) import Nuxie
-#else
-import Nuxie
-#endif
 
 @objc(NuxieUnrealRuntime)
 public final class NuxieUnrealRuntime: NSObject {
@@ -91,11 +87,7 @@ public final class NuxieUnrealRuntime: NSObject {
           config.localeIdentifier = input["localeIdentifier"] as? String
           config.purchaseHandlingMode = input["purchaseHandlingMode"] as? String == "observer" ? .observer : .full
           config.purchaseDelegate = input["externalBilling"] as? Bool == true ? self.purchases : nil
-#if DEBUG
-          if let endpoint = ProcessInfo.processInfo.environment["NUXIE_UNREAL_API_ENDPOINT"], let url = URL(string: endpoint) {
-            config.testingOverrides.apiEndpoint = url
-          }
-#endif
+          try applyHostTestingEndpoint(input, to: config)
           sdk.delegate = self.delegate
           if sdk.isSetup { try sdk.setPurchaseDelegate(config.purchaseDelegate) }
           else { try sdk.setup(with: config) }
@@ -180,4 +172,16 @@ private func encode(_ value: [String: Any]) throws -> String {
 @MainActor private func identityDictionary() -> [String: Any] {
   let sdk = NuxieSDK.shared
   return ["distinctId": sdk.getDistinctId(), "anonymousId": sdk.getAnonymousId(), "isIdentified": sdk.isIdentified]
+}
+
+// Private transport input: only a non-Shipping Unreal Development host emits this field.
+func applyHostTestingEndpoint(_ input: [String: Any], to configuration: NuxieConfiguration) throws {
+  guard let value = input["testingApiEndpoint"] else { return }
+  guard input["environment"] as? String == "development",
+    let endpoint = value as? String, let url = URL(string: endpoint),
+    ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+    let host = url.host, !host.isEmpty, url.user == nil, url.password == nil else {
+    throw failure("invalidArgument", "Local testing requires a Development environment and an HTTP(S) endpoint")
+  }
+  configuration.testingOverrides.apiEndpoint = url
 }
