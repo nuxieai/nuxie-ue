@@ -64,7 +64,7 @@ The current iOS Lab was exercised through iPhone Mirroring on the physical phone
 
 A separate run travelled to `LabSecond` while the Experience remained open. At 17:52:03.804 its public-API checks confirmed identity, Ready status, presentation and pause. Another App Action arrived on the destination map at 17:52:38.554. After Home Screen backgrounding and foregrounding, the Experience remained visible, and an App Action plus deferred callback arrived at 17:53:19.856. Tapping authored Close completed the Journey and cleared the Lab-owned pause at 17:53:27.023; dismissal followed at 17:53:27.559.
 
-Native Experience touch controls worked through Mirroring. Taps on the Unreal-rendered Lab controls did not produce callbacks during this session; direct-device input versus Mirroring input still needs diagnosis. Automated Lab API execution is not evidence that those controls work.
+Native Experience touch controls worked through Mirroring. Mirroring clicks on the Unreal-rendered Lab controls produced no callbacks, but a direct physical tap on Query entity remotely returned the expected denied result with balance 0 at 18:13:20.465 UTC. Physical Lab touch input is therefore verified; Mirroring cannot substitute for direct touch on those controls in this setup.
 
 ## Prepared consumer evidence
 
@@ -95,7 +95,13 @@ The local backend imported the active `nuxie_qualification` subscription with ba
 | Acknowledgement and access | Evidence was synced and Play-acknowledged; Unreal returned to Ready at 17:29:54.778 and emitted `purchase_synced` at 17:29:54.826; a fresh backend profile contained `unreal_play_access` |
 | Real Play restore | The same customer and subscription produced `restore_completed` and `unreal_play_restored` at 17:34:35.685, completing the Journey and returning to the Lab |
 
-These observations come from the Unreal application, not the earlier native example's retained purchase history. They qualify the managed Play purchase/restore path. RTDN delivery, live price text in the authored screen, the external-controller outcome matrix, and App Store sandbox qualification remain outstanding.
+These observations come from the Unreal application, not the earlier native example's retained purchase history. They qualify the managed Play purchase/restore path. The current test Experience also displayed the live localized price `$0.99` on 2026-09-15 at 18:52 UTC, through `paywall.selectedProduct.price` (version `ver_01m2k6hp2srzeepx1zndsyxgzg`). RTDN delivery, the external-controller outcome matrix, and App Store sandbox qualification remain outstanding.
+
+## Apple sandbox startup
+
+The current Lab was packaged with the existing Apple sandbox development profile for `ai.nuxie.ios.staging`, passed strict signature verification, and installed on the physical phone. A supported clean install fetched its local backend profile and presented the signed native Experience at 18:38:33.970 UTC. A warm relaunch fetched the profile in 2.8 seconds and presented again at 18:39:00.071. The real StoreKit sheet displayed Sandbox, the monthly $0.99 product, and an explicit no-charge notice. Purchase authentication and backend reconciliation are not yet qualified.
+
+Installing over the retired native test host initially retained an unsupported schema-v1 event database. The SDK deliberately requires v2; the unclear failure propagation is tracked separately in [UNIV-3183](https://universe.basis.dev/issue/UNIV-3183). The old test data was preserved before a clean install. The successful cold/warm checks use the supported schema, with no migration or bypass. Temporary diagnostic source changes were removed.
 
 ## Earlier evidence: useful, not final-candidate qualification
 
@@ -109,9 +115,9 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 
 ## Remaining qualification
 
-- Diagnose the first-run iOS lifecycle failure and missing Mirroring input on the Unreal Lab controls. Subsequent lifecycle/debit passes and native Experience taps do not resolve these issues.
+- Diagnose the first-run iOS lifecycle failure. Subsequent lifecycle/debit passes do not explain that intermittent result. Physical Lab touch input passed; use direct touch for Unreal controls that Mirroring does not forward.
 - Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
-- Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery and live price rendering; managed Play purchase/restore evidence is recorded above. Synthetic external-controller completions do not establish real store outcomes.
+- Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery; managed Play purchase/restore and live-price evidence are recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
 
