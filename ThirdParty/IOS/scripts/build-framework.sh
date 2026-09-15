@@ -3,6 +3,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 SCHEME=NuxieUnrealBridge
+CONFIGURATION="${NUXIE_IOS_BUILD_CONFIGURATION:-Release}"
+case "$CONFIGURATION" in Debug|Release) ;; *) echo "Use Debug or Release for NUXIE_IOS_BUILD_CONFIGURATION" >&2; exit 1 ;; esac
 mkdir -p .build lib
 for PLATFORM in ios simulator; do
   DESTINATION='generic/platform=iOS'
@@ -10,7 +12,7 @@ for PLATFORM in ios simulator; do
   if [[ "$PLATFORM" == simulator ]]; then DESTINATION='generic/platform=iOS Simulator'; SDK_NAME=iphonesimulator; fi
   ARCHIVE="$ROOT_DIR/.build/$PLATFORM.xcarchive"
   DERIVED="$ROOT_DIR/.build/DerivedData-$PLATFORM"
-  xcodebuild archive -quiet -scheme "$SCHEME" -destination "$DESTINATION" \
+  xcodebuild archive -quiet -scheme "$SCHEME" -configuration "$CONFIGURATION" -destination "$DESTINATION" \
     -archivePath "$ARCHIVE" -derivedDataPath "$DERIVED" \
     -clonedSourcePackagesDirPath "$ROOT_DIR/.build/DerivedData/SourcePackages" \
     SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES CODE_SIGNING_ALLOWED=NO
@@ -33,4 +35,4 @@ for PLATFORM in ios simulator; do
   echo "Created $ZIP"
 done
 
-python3 "$ROOT_DIR/../../scripts/write-native-receipt.py" ios
+python3 "$ROOT_DIR/../../scripts/write-native-receipt.py" ios "$CONFIGURATION"
