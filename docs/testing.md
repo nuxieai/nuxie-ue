@@ -49,7 +49,7 @@ The rebuilt Android Lab was manually exercised on 2026-09-15 UTC. Its APK SHA-25
 | Journey completion | At 15:48:10.073, both `paused` and `presenting` became false |
 | SDK shutdown | Completed at 15:48:17.332; a subsequent query returned the unconfigured error |
 
-The Lab releases only its own pause, using the matching Experience/version/Journey key. Completion is handled as well as explicit dismissal because a terminal Journey can retire its screen without a user-dismissal activity. Android device qualification on 2026-09-15 preserved a game-owned pause after both Journey completion and dismissal at 16:10:20.108 UTC (`paused=true, presenting=false`). A separate run travelled to `LabSecond` while presenting: identity, Ready status, presentation and pause passed at 16:10:57.273; a further App Action delivered on the destination map; dismissal at 16:11:14.005 cleared the Lab-owned pause (`paused=false, presenting=false`). The corresponding iOS checks remain outstanding.
+The Lab releases only its own pause, using the matching Experience/version/Journey key. Completion is handled as well as explicit dismissal because a terminal Journey can retire its screen without a user-dismissal activity. Android device qualification on 2026-09-15 preserved a game-owned pause after both Journey completion and dismissal at 16:10:20.108 UTC (`paused=true, presenting=false`). A separate run travelled to `LabSecond` while presenting: identity, Ready status, presentation and pause passed at 16:10:57.273; a further App Action delivered on the destination map; dismissal at 16:11:14.005 cleared the Lab-owned pause (`paused=false, presenting=false`). The corresponding iOS checks are recorded below.
 
 For the active-overlay local-rejection check, set `validateOverlayDispatch: true` in the development Lab's `Saved/NuxieLab/auto.json`. This intentionally calls `CheckFeature` with an empty Feature ID from an App Action and records the expected deferred failure. It is excluded from Shipping builds.
 
@@ -58,13 +58,21 @@ Two additional development-only options exercise the game's presentation policy 
 - `gameOwnedPause: true` pauses gameplay before configuration. After dismissing the Experience, the observations must retain `paused=true` while `presenting=false`.
 - `travelOnAppAction: true` makes the authored `unreal_qa_action` travel once to `LabSecond` while the Experience is open. The destination checks identity, Ready status, presentation, and pause through the public API without reconfiguring the client. After dismissal, its Lab-owned pause must clear. Use a separate run without `gameOwnedPause` for this check.
 
+### iOS presentation and pause
+
+The current iOS Lab was exercised through iPhone Mirroring on the physical phone on 2026-09-15. An authored App Action delivered three typed values plus a deferred local rejection at 17:50:25.444 UTC while `paused=true, presenting=true`. Journey completion and dismissal retained the game-owned pause (`paused=true, presenting=false`) at 17:50:25.510–17:50:26.046.
+
+A separate run travelled to `LabSecond` while the Experience remained open. At 17:52:03.804 its public-API checks confirmed identity, Ready status, presentation and pause. Another App Action arrived on the destination map at 17:52:38.554. After Home Screen backgrounding and foregrounding, the Experience remained visible, and an App Action plus deferred callback arrived at 17:53:19.856. Tapping authored Close completed the Journey and cleared the Lab-owned pause at 17:53:27.023; dismissal followed at 17:53:27.559.
+
+Native Experience touch controls worked through Mirroring. Taps on the Unreal-rendered Lab controls did not produce callbacks during this session; direct-device input versus Mirroring input still needs diagnosis. Automated Lab API execution is not evidence that those controls work.
+
 ## Prepared consumer evidence
 
 Commit `f753f7d` passed the complete local readiness gate. Its Release iOS archives and prepared plugin built for IOS, Android and Mac; all 285 manifest file hashes verified. A fresh content-only consumer copied that plugin and packaged successfully for Android and iOS. Android executed the real Blueprint unconfigured-error branch on the emulator. iOS passed strict recursive codesign verification, installed on the physical phone, and executed that branch at 16:03:42.350 UTC. These runs prove prepared-module startup and async delivery, not configured backend success. The subsequent Lab-only qualification controls do not alter the plugin runtime; the full readiness gate also passed on `fa43fb2`.
 
 A subsequent Android consumer build configured the same prepared plugin with a local development public key and a localhost-only network exception. Its real Blueprint identity-success branch executed at 16:23:20.204 UTC. Native persisted authority matched test app `app_01m2hxd0ezjqp1jnz807hxkb86`; its release-pinned Journey retained version `ver_01m2jqapeyjmaq5m0jvgcafwjd` and artifact digests. The published Experience rendered, and tapping its authored Close returned to Unreal. The equivalent configured iOS proof remains outstanding.
 
-The current iOS Lab (`fa43fb2`) built, passed strict recursive signing verification, and installed. On 2026-09-15 it passed lifecycle checks through `LabSecond` at 17:40:19.946 and 17:42:25.503 UTC. Its debit check passed at 17:43:30.177: character-a changed from 93 to 92, the saved operation replayed without another debit, and character-b stayed at 100. The first lifecycle attempt at 17:37:40.287 failed its finite-balance check before Ready; subsequent passes do not explain that intermittent failure, which remains under investigation. Manual iOS presentation checks remain outstanding.
+The current iOS Lab (`fa43fb2`) built, passed strict recursive signing verification, and installed. On 2026-09-15 it passed lifecycle checks through `LabSecond` at 17:40:19.946 and 17:42:25.503 UTC. Its debit check passed at 17:43:30.177: character-a changed from 93 to 92, the saved operation replayed without another debit, and character-b stayed at 100. The first lifecycle attempt at 17:37:40.287 failed its finite-balance check before Ready; subsequent passes do not explain that intermittent failure, which remains under investigation. The manual iOS presentation checks are recorded above.
 
 The Android Lab APK identified above also passed v2 signature verification, ZIP 16 KiB alignment and ELF load-segment alignment/congruence checks across all nine shared libraries.
 
@@ -101,8 +109,8 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 
 ## Remaining qualification
 
-- Final iOS manual Experience/App Action/dismissal checks, and diagnosis of the first-run lifecycle failure recorded above. Subsequent lifecycle and debit passes do not resolve that failure.
-- iOS: preservation of a game-owned pause and map travel while presenting. Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
+- Diagnose the first-run iOS lifecycle failure and missing Mirroring input on the Unreal Lab controls. Subsequent lifecycle/debit passes and native Experience taps do not resolve these issues.
+- Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
 - Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery and live price rendering; managed Play purchase/restore evidence is recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
