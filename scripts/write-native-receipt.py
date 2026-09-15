@@ -23,6 +23,10 @@ else:
     artifacts += sorted(p for p in (root / 'ThirdParty/Android/maven').rglob('*') if p.is_file())
     if len(artifacts) < 2: raise SystemExit('Pinned Android Maven artifacts are required')
     receipt = root / 'ThirdParty/Android/lib/receipt.json'
-receipt.write_text(json.dumps({'contract': 1, 'inputs': {str(p.relative_to(root)): digest(p) for p in inputs},
+metadata = {}
+if platform == 'ios':
+    if len(sys.argv) != 3 or sys.argv[2] not in ('Debug', 'Release'): raise SystemExit('Specify the actual iOS build configuration: Debug or Release')
+    metadata['configuration'] = sys.argv[2]
+receipt.write_text(json.dumps({'contract': 1, **metadata, 'inputs': {str(p.relative_to(root)): digest(p) for p in inputs},
     'artifacts': {str(p.relative_to(root)): digest(p) for p in artifacts}}, indent=2) + '\n')
 print('Recorded', receipt.relative_to(root))

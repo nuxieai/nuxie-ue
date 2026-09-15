@@ -22,6 +22,8 @@ if (version['MajorVersion'], version['MinorVersion']) != (5, 8): raise SystemExi
 pins = json.loads((root / 'NATIVE-PINS.json').read_text())
 for platform in ('IOS', 'Android'):
     receipt = json.loads((root / f'ThirdParty/{platform}/lib/receipt.json').read_text())
+    if platform == 'IOS' and receipt.get('configuration') != 'Release':
+        raise SystemExit('Distribution requires Release iOS artifacts; run bash ThirdParty/IOS/scripts/build-framework.sh without the Debug override.')
     for section in ('inputs', 'artifacts'):
         for relative, expected in receipt[section].items():
             path = (root / relative).resolve()
