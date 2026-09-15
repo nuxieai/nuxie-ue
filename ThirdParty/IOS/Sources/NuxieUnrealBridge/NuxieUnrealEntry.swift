@@ -1,24 +1,19 @@
 import Foundation
 
-private let queueLock = NSLock()
-private var queue: [String] = []
-private var queueOffset = 0
+private let outbox = NuxieOutbox()
 private var bridge: NuxieUnrealRuntime?
 
-private func deliver(_ value: String) {
-  queueLock.lock(); defer { queueLock.unlock() }
-  queue.append(value)
-}
+@discardableResult private func deliver(_ value: String) -> Bool { outbox.offer(value) }
 
 @_cdecl("NuxieUnreal_Dispatch")
-public func nuxieUnrealDispatch(_ pointer: UnsafePointer<CChar>) {
+public func nuxieUnrealDispatch(_ pointer: UnsafePointer<CChar>) -> Int32 {
   let json = String(cString: pointer)
-  DispatchQueue.main.async {
-    guard let data = json.data(using: .utf8),
+  guard let data = json.data(using: .utf8),
       let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let id = request["requestId"] as? String,
       let method = request["method"] as? String,
-      let arguments = request["arguments"] as? [String: Any] else { return }
+      let arguments = request["arguments"] as? [String: Any], outbox.admit(id, method: method) else { return 0 }
+  DispatchQueue.main.async {
     if bridge == nil {
       let next = NuxieUnrealRuntime()
       next.emit = { deliver($0) }
@@ -31,15 +26,12 @@ public func nuxieUnrealDispatch(_ pointer: UnsafePointer<CChar>) {
       resolve: { reply(["requestId": id, "result": $0 ?? NSNull()]) },
       reject: { code, message, _ in reply(["requestId": id, "error": ["code": code, "message": message]]) })
   }
+  return 1
 }
 
 @_cdecl("NuxieUnreal_PopMessage")
 public func nuxieUnrealPopMessage() -> UnsafeMutablePointer<CChar>? {
-  queueLock.lock(); defer { queueLock.unlock() }
-  guard queueOffset < queue.count else { return nil }
-  let value = queue[queueOffset]
-  queueOffset += 1
-  if queueOffset == queue.count { queue.removeAll(keepingCapacity: true); queueOffset = 0 }
+  guard let value = outbox.poll() else { return nil }
   return strdup(value)
 }
 
@@ -50,7 +42,7 @@ public func nuxieUnrealFreeCString(_ pointer: UnsafeMutablePointer<CChar>?) { fr
 public func nuxieUnrealDetach() {
   DispatchQueue.main.async {
     bridge?.invalidate(); bridge = nil
-    queueLock.lock(); queue.removeAll(); queueOffset = 0; queueLock.unlock()
+    outbox.clear()
   }
 }
 

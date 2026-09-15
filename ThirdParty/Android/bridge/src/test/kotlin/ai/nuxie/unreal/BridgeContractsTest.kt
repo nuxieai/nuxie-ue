@@ -7,7 +7,7 @@ import org.junit.Test
 
 class BridgeContractsTest {
   @Test fun missingControllerReplyTimesOut() = runBlocking {
-    val bridge = NuxiePurchaseDelegateBridge({ _, _ -> }, timeoutMs = 10)
+    val bridge = NuxiePurchaseDelegateBridge({ _, _ -> true }, timeoutMs = 10)
     assertTrue(bridge.restorePurchases() is RestoreResult.Failed)
   }
 
@@ -19,13 +19,14 @@ class BridgeContractsTest {
       bridge.completeRestore("wrong-id", mapOf("type" to "failed"))
       bridge.completeRestore(id, mapOf("type" to "restored"))
       bridge.completeRestore(id, mapOf("type" to "failed"))
+      true
     })
     assertEquals(RestoreResult.Restored, bridge.restorePurchases())
   }
 
   @Test fun shutdownSettlesOutstandingControllerRequests() = runBlocking {
     lateinit var bridge: NuxiePurchaseDelegateBridge
-    bridge = NuxiePurchaseDelegateBridge({ _, _ -> bridge.cancelPending("shutdown") })
+    bridge = NuxiePurchaseDelegateBridge({ _, _ -> bridge.cancelPending("shutdown"); true })
     assertTrue(bridge.restorePurchases() is RestoreResult.Failed)
   }
 }

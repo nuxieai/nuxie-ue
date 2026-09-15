@@ -31,6 +31,7 @@ void UNuxieLabPresentation::Initialize(FSubsystemCollectionBase& Collection) {
   Super::Initialize(Collection); Collection.InitializeDependency<UNuxieSubsystem>();
   Client = GetGameInstance()->GetSubsystem<UNuxieSubsystem>();
   Client->OnActivity.AddDynamic(this, &UNuxieLabPresentation::Activity);
+  Client->OnIdentityChanged.AddDynamic(this, &UNuxieLabPresentation::Identity);
   Client->OnStatusChanged.AddDynamic(this, &UNuxieLabPresentation::Status);
   MapLoaded = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UNuxieLabPresentation::ApplyPause);
 }
@@ -60,11 +61,12 @@ void UNuxieLabPresentation::Activity(const FNuxieActivity& Value) {
   if (Value.Name == TEXT("experience_shown")) { ActiveExperiences.Add(Key); ApplyPause(GetWorld()); }
   else { ActiveExperiences.Remove(Key); if (ActiveExperiences.IsEmpty()) RestorePause(); }
 }
+void UNuxieLabPresentation::Identity(const FNuxieIdentity&) { ActiveExperiences.Reset(); RestorePause(); }
 void UNuxieLabPresentation::Status(const FNuxieStatus& Value) {
   if (Value.Kind == ENuxieStatusKind::ShuttingDown || Value.Kind == ENuxieStatusKind::Unconfigured) { ActiveExperiences.Reset(); RestorePause(); }
 }
 void UNuxieLabPresentation::Deinitialize() {
-  Client->OnActivity.RemoveAll(this); Client->OnStatusChanged.RemoveAll(this);
+  Client->OnActivity.RemoveAll(this); Client->OnStatusChanged.RemoveAll(this); Client->OnIdentityChanged.RemoveAll(this);
   FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(MapLoaded);
   ActiveExperiences.Reset(); RestorePause(); Super::Deinitialize();
 }

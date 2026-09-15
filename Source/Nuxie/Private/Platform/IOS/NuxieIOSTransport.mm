@@ -2,7 +2,7 @@
 #if PLATFORM_IOS
 extern "C" {
   int32 NuxieUnreal_ContractVersion();
-  void NuxieUnreal_Dispatch(const char* Request);
+  int32 NuxieUnreal_Dispatch(const char* Request);
   char* NuxieUnreal_PopMessage();
   void NuxieUnreal_FreeCString(char* Value);
 }
@@ -11,8 +11,7 @@ class FNuxieIOSTransport final : public INuxieNativeTransport {
 public:
   int32 ContractVersion() override { return NuxieUnreal_ContractVersion(); }
   bool Submit(const FString& Request) override {
-    NuxieUnreal_Dispatch(TCHAR_TO_UTF8(*Request));
-    return true;
+    return NuxieUnreal_Dispatch(TCHAR_TO_UTF8(*Request)) != 0;
   }
   bool Poll(FString& Message) override {
     char* Value = NuxieUnreal_PopMessage();

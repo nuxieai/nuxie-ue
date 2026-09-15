@@ -24,13 +24,15 @@ UENUM(BlueprintType)
 enum class ENuxieFeaturePolicy : uint8 { CacheFirst, Remote };
 
 UENUM(BlueprintType)
-enum class ENuxieErrorCode : uint8 { None, UnsupportedPlatform, InvalidArgument, NotConfigured, AlreadyConfigured, LifecycleBusy, IdentityChanged, SessionInUse, SDKShutdown, OperationTimeout, InvalidResponse, IncompatibleBridge, NativeError };
+enum class ENuxieErrorCode : uint8 { None, UnsupportedPlatform, InvalidArgument, NotConfigured, AlreadyConfigured, LifecycleBusy, IdentityChanged, SessionInUse, SDKShutdown, OperationTimeout, InvalidResponse, IncompatibleBridge, NativeError, Overloaded };
 
 UENUM(BlueprintType)
 enum class ENuxiePurchaseOutcome : uint8 { Purchased, Cancelled, Pending, Failed };
 
 UENUM(BlueprintType)
 enum class ENuxieRestoreOutcome : uint8 { Restored, NoPurchases, Failed };
+
+struct FNuxieJsonValue;
 
 /** JSON is stored by value. Use NuxieValues builders or validated parsing. */
 USTRUCT(BlueprintType)
@@ -39,6 +41,14 @@ struct NUXIE_API FNuxieProperties
   GENERATED_BODY()
   FString ToJson() const { return Json; }
   static bool TryParse(const FString& Input, FNuxieProperties& Output, FString& Error);
+  bool WithString(const FString& Name, const FString& Value, FString& Error);
+  bool WithBool(const FString& Name, bool Value, FString& Error);
+  bool WithInteger(const FString& Name, int64 Value, FString& Error);
+  bool WithNumber(const FString& Name, double Value, FString& Error);
+  bool WithNull(const FString& Name, FString& Error);
+  bool WithObject(const FString& Name, const FNuxieProperties& Value, FString& Error);
+  bool WithArray(const FString& Name, const TArray<FNuxieJsonValue>& Value, FString& Error);
+
 private:
   UPROPERTY() FString Json = TEXT("{}");
 };

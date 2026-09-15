@@ -8,21 +8,28 @@ import Nuxie
 
 @objc(NuxieUnrealRuntime)
 public final class NuxieUnrealRuntime: NSObject {
-  @objc public var emit: ((String) -> Void)?
+  private let eventLock = NSLock()
+  private var eventContext: (session: String, generation: String)?
+  private var emitter: ((String) -> Bool)?
+  @objc public var emit: ((String) -> Bool)? {
+    get { eventLock.withLock { emitter } }
+    set { eventLock.withLock { emitter = newValue } }
+  }
   private var session: String?
   private var snapshotSubscription: AnyCancellable?
   private static weak var owner: NuxieUnrealRuntime?
   private static var configurationKey: String?
   private lazy var purchases = NuxiePurchaseDelegateBridge { [weak self] name, payload in
-    Task { @MainActor [weak self] in self?.send(name, payload) }
+    self?.send(name, payload) ?? false
   }
-  @MainActor private lazy var delegate = NuxieDelegateBridge { [weak self] name, payload in self?.send(name, payload) }
+  @MainActor private lazy var delegate = NuxieDelegateBridge { [weak self] name, payload in _ = self?.send(name, payload) }
 
   @objc public func invalidate() {
     Task { @MainActor in
       self.snapshotSubscription?.cancel()
       self.purchases.cancelPending()
       self.session = nil
+      self.eventLock.withLock { self.eventContext = nil }
       self.emit = nil
       if Self.owner === self {
         NuxieSDK.shared.delegate = nil
@@ -31,13 +38,18 @@ public final class NuxieUnrealRuntime: NSObject {
     }
   }
 
-  @MainActor private func send(_ name: String, _ payload: [String: Any]) {
-    guard let session else { return }
-    if let json = try? encode(["session": session, "name": name, "payload": payload]) { emit?(json) }
+  @discardableResult private func send(_ name: String, _ payload: [String: Any]) -> Bool {
+    // Capture the generation before crossing threads; never relabel an already queued event.
+    let (context, callback) = eventLock.withLock { (eventContext, emitter) }
+    guard let context, let callback,
+      let json = try? encode(["session": context.session, "identityGeneration": context.generation,
+        "name": name, "payload": payload]) else { return false }
+    return callback(json)
   }
 
   @MainActor private func snapshot(_ value: FeatureInfo.Snapshot) -> [String: Any] {
-    ["identityGeneration": String(value.identityGeneration), "revision": String(value.revision),
+    eventLock.withLock { eventContext = session.map { ($0, String(value.identityGeneration)) } }
+    return ["identityGeneration": String(value.identityGeneration), "revision": String(value.revision),
      "state": String(describing: value.state), "all": value.all.mapValues(featureAccessDictionary)]
   }
 
@@ -95,6 +107,7 @@ public final class NuxieUnrealRuntime: NSObject {
           resolve(try encode(["contract": 1, "session": session, "nativeVersion": sdk.version,
             "snapshot": self.snapshot(sdk.features.snapshot), "identity": identityDictionary()]))
         case "shutdown":
+          self.eventLock.withLock { self.eventContext = nil }
           self.snapshotSubscription?.cancel()
           self.purchases.cancelPending()
           await sdk.shutdown()
@@ -134,6 +147,7 @@ public final class NuxieUnrealRuntime: NSObject {
         if method == "configure", !NuxieSDK.shared.isSetup {
           self.snapshotSubscription?.cancel(); self.purchases.cancelPending()
           self.session = nil
+      self.eventLock.withLock { self.eventContext = nil }
           if Self.owner === self { Self.owner = nil; NuxieSDK.shared.delegate = nil }
         }
         let error = error as NSError

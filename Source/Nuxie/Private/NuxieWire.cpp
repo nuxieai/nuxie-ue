@@ -3,6 +3,19 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 namespace NuxieWire {
+FString JsonValue(const TSharedPtr<FJsonValue>& Value) {
+  if (!Value) return FString();
+  FString Json;
+  TArray<TSharedPtr<FJsonValue>> Values = { Value };
+  if (!FJsonSerializer::Serialize(Values, TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Json))) return FString();
+  return Json.Mid(1, Json.Len() - 2);
+}
+TSharedPtr<FJsonValue> Value(const FString& Text) {
+  // Unreal deserializes containers only. A one-element array admits scalar roots too.
+  TArray<TSharedPtr<FJsonValue>> Values;
+  if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(TEXT("[") + Text + TEXT("]")), Values) || Values.Num() != 1) return nullptr;
+  return Values[0];
+}
 FObject Object(const FString& Text) { FObject R; FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), R); return R; }
 FString Json(const FObject& Value) { FString R; if (Value) FJsonSerializer::Serialize(Value.ToSharedRef(), TJsonWriterFactory<>::Create(&R)); return R; }
 FNuxieError Error(ENuxieErrorCode Code, const FString& Message, const FString& NativeCode) {
@@ -112,4 +125,11 @@ bool Product(const FObject& V, FNuxieStoreProduct& P) {
   }
   return true;
 }
+}
+
+bool NuxieWire::EventMatchesIdentity(const FObject& Value, const FString& Session, const FString& Generation, bool bChangingIdentity) {
+  FString EventSession, EventGeneration;
+  return Value && !bChangingIdentity && !Session.IsEmpty() && !Generation.IsEmpty()
+    && Value->TryGetStringField(TEXT("session"), EventSession) && EventSession == Session
+    && Value->TryGetStringField(TEXT("identityGeneration"), EventGeneration) && EventGeneration == Generation;
 }

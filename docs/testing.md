@@ -49,3 +49,13 @@ Use the unconfigured example. This installs and launches it, rejects native-modu
 - Existing store apps were located: Apple Nuxie Staging (`ai.nuxie.ios.staging`) and Play Nuxie Staging (`ai.nuxie.example`). Authenticated Play Console now shows `nuxie_qualification` / `monthly` active; the older setup document's pending-base-plan checkpoint is outdated. This discovery is not an Unreal store purchase pass.
 
 Remaining: Android authored interaction, manual Lab input qualification, preservation of a game-owned pause and travel while an Experience is open, and real purchase/restore sandbox outcomes. Full release qualification is not yet complete. The development observer records real callbacks and state; it does not inject native callbacks or treat synthetic purchase outcomes as store evidence.
+
+## Final review regressions — 2026-09-15 UTC
+
+The session handoff regression failed against the old dispatcher: reconfiguring synchronously from Shutdown lost the new Configure reply and timed out. After the ownership fix, both Unreal automation suites passed, including callback reconfiguration, bounded admission, rejected identity preserving Ready state, scalar property round trips, and event-envelope identity fencing.
+
+Expanded native tests pass on both platforms: a 10,000-event burst cannot starve replies or checkout, retained event storage is bounded, duplicate replies cannot consume capacity, rejected checkout settles immediately, and reserved shutdown admission retires stuck old reservations. Swift ran seven tests; Kotlin ran seven tests. The scalar tests also exposed and fixed Unreal's container-only JSON codec handling of standalone values.
+
+These checks qualify the review fixes at the source/bridge level. Device and prepared-artifact evidence above predates these fixes and must be repeated for the final candidate. TypeScript checks do not apply: this SDK change contains no TypeScript.
+
+The independent spec review additionally found an upstream native activity identity gap, tracked in [UNIV-3175](https://universe.basis.dev/issue/UNIV-3175). The bridge now fences events from bridge entry onward, but the native SDK can already have lost the originating identity before calling the bridge. This remains an explicit merge/qualification blocker alongside the outstanding device/store scenarios; no merge or release is claimed.

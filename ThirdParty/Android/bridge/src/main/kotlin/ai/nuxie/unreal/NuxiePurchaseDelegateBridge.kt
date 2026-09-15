@@ -10,7 +10,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
 class NuxiePurchaseDelegateBridge(
-  private val emitEvent: (eventName: String, payload: Map<String, Any?>) -> Unit,
+  private val emitEvent: (eventName: String, payload: Map<String, Any?>) -> Boolean,
   private val timeoutMs: Long = 60_000,
 ) : NuxiePurchaseDelegate {
   private val purchaseRequests = ConcurrentHashMap<String, CompletableDeferred<PurchaseResult>>()
@@ -19,9 +19,12 @@ class NuxiePurchaseDelegateBridge(
   override suspend fun purchase(product: StoreProduct): PurchaseResult {
     val requestId = UUID.randomUUID().toString()
     val deferred = CompletableDeferred<PurchaseResult>()
-    purchaseRequests[requestId] = deferred
+    synchronized(this) {
+      if (purchaseRequests.size + restoreRequests.size >= 64) return PurchaseResult.Failed(bridgeError("bridge_overloaded"))
+      purchaseRequests[requestId] = deferred
+    }
 
-    emitEvent(
+    val emitted = emitEvent(
       "purchase",
       mapOf(
         "requestId" to requestId,
@@ -44,6 +47,7 @@ class NuxiePurchaseDelegateBridge(
       ),
     )
 
+    if (!emitted) { purchaseRequests.remove(requestId); return PurchaseResult.Failed(bridgeError("bridge_overloaded")) }
     return try {
       withTimeoutOrNull(timeoutMs) { deferred.await() }
         ?: PurchaseResult.Failed(bridgeError("purchase_timeout"))
@@ -55,9 +59,12 @@ class NuxiePurchaseDelegateBridge(
   override suspend fun restorePurchases(): RestoreResult {
     val requestId = UUID.randomUUID().toString()
     val deferred = CompletableDeferred<RestoreResult>()
-    restoreRequests[requestId] = deferred
+    synchronized(this) {
+      if (purchaseRequests.size + restoreRequests.size >= 64) return RestoreResult.Failed(bridgeError("bridge_overloaded"))
+      restoreRequests[requestId] = deferred
+    }
 
-    emitEvent(
+    val emitted = emitEvent(
       "restore",
       mapOf(
         "requestId" to requestId,
@@ -67,6 +74,7 @@ class NuxiePurchaseDelegateBridge(
       ),
     )
 
+    if (!emitted) { restoreRequests.remove(requestId); return RestoreResult.Failed(bridgeError("bridge_overloaded")) }
     return try {
       withTimeoutOrNull(timeoutMs) { deferred.await() }
         ?: RestoreResult.Failed(bridgeError("restore_timeout"))

@@ -4,7 +4,10 @@
 namespace NuxieWire {
 using FObject = TSharedPtr<FJsonObject>;
 FObject Object(const FString& Json);
+TSharedPtr<FJsonValue> Value(const FString& Json);
+FString JsonValue(const TSharedPtr<FJsonValue>& Value);
 FString Json(const FObject& Value);
+bool EventMatchesIdentity(const FObject& Value, const FString& Session, const FString& Generation, bool bChangingIdentity);
 FNuxieError Error(ENuxieErrorCode Code, const FString& Message, const FString& NativeCode = FString());
 FNuxieError NativeError(const FObject& Value);
 bool Access(const FObject& Value, FNuxieFeatureAccess& Out);
