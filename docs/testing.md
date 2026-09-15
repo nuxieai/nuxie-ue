@@ -64,7 +64,7 @@ Commit `f753f7d` passed the complete local readiness gate. Its Release iOS archi
 
 A subsequent Android consumer build configured the same prepared plugin with a local development public key and a localhost-only network exception. Its real Blueprint identity-success branch executed at 16:23:20.204 UTC. Native persisted authority matched test app `app_01m2hxd0ezjqp1jnz807hxkb86`; its release-pinned Journey retained version `ver_01m2jqapeyjmaq5m0jvgcafwjd` and artifact digests. The published Experience rendered, and tapping its authored Close returned to Unreal. The equivalent configured iOS proof remains outstanding.
 
-The current iOS Lab (`fa43fb2`) also built, passed strict recursive signing verification, and installed. Its subsequent launch was denied because the phone was locked; no new lifecycle result is claimed.
+The current iOS Lab (`fa43fb2`) built, passed strict recursive signing verification, and installed. On 2026-09-15 it passed lifecycle checks through `LabSecond` at 17:40:19.946 and 17:42:25.503 UTC. Its debit check passed at 17:43:30.177: character-a changed from 93 to 92, the saved operation replayed without another debit, and character-b stayed at 100. The first lifecycle attempt at 17:37:40.287 failed its finite-balance check before Ready; subsequent passes do not explain that intermittent failure, which remains under investigation. Manual iOS presentation checks remain outstanding.
 
 The Android Lab APK identified above also passed v2 signature verification, ZIP 16 KiB alignment and ELF load-segment alignment/congruence checks across all nine shared libraries.
 
@@ -101,7 +101,7 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 
 ## Remaining qualification
 
-- Final iOS Lab manual/lifecycle/Experience/App Action/dismissal checks after the current changes.
+- Final iOS manual Experience/App Action/dismissal checks, and diagnosis of the first-run lifecycle failure recorded above. Subsequent lifecycle and debit passes do not resolve that failure.
 - iOS: preservation of a game-owned pause and map travel while presenting. Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
 - Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery and live price rendering; managed Play purchase/restore evidence is recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
