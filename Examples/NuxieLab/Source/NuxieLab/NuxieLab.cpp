@@ -448,7 +448,16 @@ void UNuxieLabWidget::RunLifecycle(int32 Step) {
     case 7: {
       FNuxieFeatureQuery Query; Query.Policy = ENuxieFeaturePolicy::Remote; Query.EntityId = Entity->GetText().ToString();
       Client->CheckFeature(Feature->GetText().ToString(), Query, FNuxieFeatureCompletion::CreateWeakLambda(this, [this, Query](const TNuxieResult<FNuxieFeatureAccess>& Before) {
-        if (!Before.IsSuccess() || !Before.GetValue().bHasBalance || Before.GetValue().bUnlimited) { LifecycleFinished(false, TEXT("Denied-use check requires a finite entity balance.")); return; }
+        if (!Before.IsSuccess()) {
+          const auto& Error = Before.GetError();
+          LifecycleFinished(false, FString::Printf(TEXT("Denied-use entity query failed (%s / %s): %s"), *StaticEnum<ENuxieErrorCode>()->GetNameStringByValue(static_cast<int64>(Error.Code)), *Error.NativeCode, *Error.Message));
+          return;
+        }
+        const auto& Access = Before.GetValue();
+        if (!Access.bHasBalance || Access.bUnlimited) {
+          LifecycleFinished(false, FString::Printf(TEXT("Denied-use check requires a finite entity balance (hasBalance=%s, unlimited=%s)."), Access.bHasBalance ? TEXT("true") : TEXT("false"), Access.bUnlimited ? TEXT("true") : TEXT("false")));
+          return;
+        }
         const double Balance = Before.GetValue().Balance;
         FNuxieFeatureCommand Command; Command.EntityId = Query.EntityId; Command.Quantity = Balance + 1; Command.OperationId = FGuid::NewGuid().ToString();
         Client->ConsumeFeature(Feature->GetText().ToString(), Command, FNuxieConsumeCompletion::CreateWeakLambda(this, [this, Query, Command, Balance](const TNuxieResult<FNuxieUsageReceipt>& Denied) {
