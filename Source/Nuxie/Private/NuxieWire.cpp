@@ -1,6 +1,7 @@
 #include "NuxieWire.h"
 #include "Core/RequestLedger.h"
 #include "Serialization/JsonReader.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonSerializer.h"
 namespace NuxieWire {
 FString JsonValue(const TSharedPtr<FJsonValue>& Value) {
