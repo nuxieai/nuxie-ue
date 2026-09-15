@@ -51,7 +51,9 @@ The rebuilt Android Lab was manually exercised on 2026-09-15 UTC. Its APK SHA-25
 
 The Lab releases only its own pause, using the matching Experience/version/Journey key. Completion is handled as well as explicit dismissal because a terminal Journey can retire its screen without a user-dismissal activity. Android device qualification on 2026-09-15 preserved a game-owned pause after both Journey completion and dismissal at 16:10:20.108 UTC (`paused=true, presenting=false`). A separate run travelled to `LabSecond` while presenting: identity, Ready status, presentation and pause passed at 16:10:57.273; a further App Action delivered on the destination map; dismissal at 16:11:14.005 cleared the Lab-owned pause (`paused=false, presenting=false`). The corresponding iOS checks are recorded below.
 
-For the active-overlay local-rejection check, set `validateOverlayDispatch: true` in the development Lab's `Saved/NuxieLab/auto.json`. This intentionally calls `CheckFeature` with an empty Feature ID from an App Action and records the expected deferred failure. It is excluded from Shipping builds.
+The Lab keeps its development settings and reports in `Saved/NuxieLab` on iOS/Mac and in private app storage at `files/NuxieLab` on Android. The development runner logs its settings path at startup. Android debug builds allow these files to be read/written through `adb shell run-as <package>` without external-storage permissions.
+
+For the active-overlay local-rejection check, set `validateOverlayDispatch: true` in the development Lab's `auto.json`. This intentionally calls `CheckFeature` with an empty Feature ID from an App Action and records the expected deferred failure. It is excluded from Shipping builds.
 
 Two additional development-only options exercise the game's presentation policy against a real published Experience:
 
@@ -77,6 +79,39 @@ The current iOS Lab (`fa43fb2`) built, passed strict recursive signing verificat
 The Android Lab APK identified above also passed v2 signature verification, ZIP 16 KiB alignment and ELF load-segment alignment/congruence checks across all nine shared libraries.
 
 ## External restore evidence
+
+Development builds support explicit controller protocol probes in the Lab's `auto.json`.
+Set `externalBilling: true` to configure the retained Lab controller. Optionally set
+`externalPurchaseOutcome` to `purchased`, `cancelled`, `pending`, or `failed`, or
+`externalRestoreOutcome` to `restored`, `noPurchases`, or `failed`. An authored
+purchase/restore control still starts the real native request. The controller then
+simulates the selected result and writes `external-checkout.json`, including invalid
+and duplicate completion rejection, pending state, and selected product/base-plan
+fields. These probes are compiled only in Development builds and are disabled when
+the outcome field is absent. They validate protocol handling, not payment, receipt
+verification, or backend access grants; real sandbox checks remain required.
+
+Copy the report from the device and check it with the outcome and product selected
+in your fixture, for example:
+
+```sh
+python3 scripts/check-external-controller.py external-checkout.json --kind purchase --outcome cancelled --store-product-id nuxie_qualification --base-plan-id monthly
+python3 scripts/check-external-controller.py external-checkout.json --kind restore --outcome noPurchases
+```
+
+Check the report timestamp against the current run, and retain the corresponding
+native activity/App Action observations. A report from another build or an earlier
+request cannot qualify the current case.
+
+The Android device probe exposed an invalid-enum admission bug: C++ consumed the
+request before native validation rejected the value. Both request types now reject
+unsupported enum values before submission. The purchase report failed at
+19:31:23.332 UTC on 2026-09-15; after the fix it passed at 19:37:11.518, including
+retained pending state, valid cancellation, duplicate rejection, and the expected
+`nuxie_qualification` product / `monthly` base plan. The patched APK SHA-256 is
+`648b5cb1d928d25fd39f35d7ad5fb76ad1aaa9c39c9709e70f0fbd737eb679d2`.
+This runtime change still requires the remaining outcome/platform checks and a
+new prepared-consumer build; earlier prepared artifacts do not include it.
 
 On Android, the external restore reached the retained C++ controller while the Experience covered paused gameplay at 16:27:55.220 UTC. Its 60-second native deadline produced the authored failure route and released pause at 16:28:55.280. Inspection then reported no pending restore, and a late completion was rejected.
 
@@ -121,7 +156,7 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
 
-Use a disposable local app/customer with finite grants for backend checks. The Lab writes `Saved/NuxieLab/validation.json`, checks two distinct entities, persists pending operation IDs and gameplay application, and assumes no concurrent consumers. Distinguish request acceptance, presentation, and verified store outcomes.
+Use a disposable local app/customer with finite grants for backend checks. The Lab writes `validation.json` beside its settings, checks two distinct entities, persists pending operation IDs and gameplay application, and assumes no concurrent consumers. Distinguish request acceptance, presentation, and verified store outcomes.
 
 For the unconfigured Blueprint-only Android startup check:
 

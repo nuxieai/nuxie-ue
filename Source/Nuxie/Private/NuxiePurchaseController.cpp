@@ -11,6 +11,13 @@ bool UNuxiePurchaseRequest::IsPending() const { return IsPendingAt(NowMs()); }
 bool UNuxieRestoreRequest::IsPending() const { return IsPendingAt(NowMs()); }
 bool UNuxiePurchaseRequest::TryComplete(ENuxiePurchaseOutcome Outcome, const FString& Message) {
   check(IsInGameThread());
+  switch (Outcome) {
+    case ENuxiePurchaseOutcome::Purchased:
+    case ENuxiePurchaseOutcome::Cancelled:
+    case ENuxiePurchaseOutcome::Pending:
+    case ENuxiePurchaseOutcome::Failed: break;
+    default: return false;
+  }
   if (!IsPending()) return false;
   const bool bAccepted = Session.Pin()->CompleteCheckout(TEXT("completePurchase"), RequestId, OutcomeJson(StaticEnum<ENuxiePurchaseOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower(), Message));
   if (bAccepted) bPending = false;
@@ -18,6 +25,12 @@ bool UNuxiePurchaseRequest::TryComplete(ENuxiePurchaseOutcome Outcome, const FSt
 }
 bool UNuxieRestoreRequest::TryComplete(ENuxieRestoreOutcome Outcome, const FString& Message) {
   check(IsInGameThread());
+  switch (Outcome) {
+    case ENuxieRestoreOutcome::Restored:
+    case ENuxieRestoreOutcome::NoPurchases:
+    case ENuxieRestoreOutcome::Failed: break;
+    default: return false;
+  }
   if (!IsPending()) return false;
   const FString Type = Outcome == ENuxieRestoreOutcome::NoPurchases ? TEXT("noPurchases") : StaticEnum<ENuxieRestoreOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower();
   const bool bAccepted = Session.Pin()->CompleteCheckout(TEXT("completeRestore"), RequestId, OutcomeJson(Type, Message));

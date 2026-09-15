@@ -17,8 +17,85 @@
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "Serialization/JsonSerializer.h"
+#if PLATFORM_ANDROID
+extern FString GInternalFilePath;
+#endif
 IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, NuxieLab, "NuxieLab");
 namespace {
+FString LabDirectory() {
+#if PLATFORM_ANDROID
+  return GInternalFilePath / TEXT("NuxieLab");
+#else
+  return FPaths::ProjectSavedDir() / TEXT("NuxieLab");
+#endif
+}
+#if UE_BUILD_DEVELOPMENT
+// Opt-in protocol probes exercise controller outcomes, not store verification.
+FString ExternalProbeOutcome(const TCHAR* Field) {
+  FString Json, Outcome; TSharedPtr<FJsonObject> Settings;
+  if (FFileHelper::LoadFileToString(Json, *(LabDirectory() / TEXT("auto.json"))) &&
+      FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) && Settings) {
+    Settings->TryGetStringField(Field, Outcome);
+  }
+  return Outcome;
+}
+void SaveExternalProbe(const TSharedRef<FJsonObject>& Report) {
+  Report->SetStringField(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
+  Report->SetBoolField(TEXT("simulatedControllerOutcome"), true);
+  FString Json; FJsonSerializer::Serialize(Report, TJsonWriterFactory<>::Create(&Json));
+  const FString Directory = LabDirectory();
+  IFileManager::Get().MakeDirectory(*Directory, true);
+  const bool bSaved = FFileHelper::SaveStringToFile(Json, *(Directory / TEXT("external-checkout.json")));
+  UE_LOG(LogTemp, Display, TEXT("NuxieLab external protocol probe: %s (report saved: %s). This is not store purchase evidence."), *Json, bSaved ? TEXT("yes") : TEXT("no"));
+}
+void ProbeExternalPurchase(UNuxiePurchaseRequest* Request) {
+  const FString Name = ExternalProbeOutcome(TEXT("externalPurchaseOutcome"));
+  if (Name.IsEmpty()) return;
+  ENuxiePurchaseOutcome Outcome;
+  if (Name == TEXT("purchased")) Outcome = ENuxiePurchaseOutcome::Purchased;
+  else if (Name == TEXT("cancelled")) Outcome = ENuxiePurchaseOutcome::Cancelled;
+  else if (Name == TEXT("pending")) Outcome = ENuxiePurchaseOutcome::Pending;
+  else if (Name == TEXT("failed")) Outcome = ENuxiePurchaseOutcome::Failed;
+  else { UE_LOG(LogTemp, Error, TEXT("NuxieLab: invalid externalPurchaseOutcome; request retained.")); return; }
+  auto Report = MakeShared<FJsonObject>();
+  Report->SetStringField(TEXT("kind"), TEXT("purchase"));
+  Report->SetStringField(TEXT("outcome"), Name);
+  const auto& Product = Request->Product;
+  Report->SetStringField(TEXT("platform"), Product.Platform);
+  Report->SetStringField(TEXT("productId"), Product.ProductId);
+  Report->SetStringField(TEXT("storeProductId"), Product.StoreProductId);
+  Report->SetStringField(TEXT("placementId"), Product.PlacementId);
+  Report->SetStringField(TEXT("displayPrice"), Product.DisplayPrice);
+  Report->SetBoolField(TEXT("hasBasePlanId"), Product.bHasBasePlanId);
+  Report->SetStringField(TEXT("basePlanId"), Product.BasePlanId);
+  Report->SetBoolField(TEXT("hasOfferId"), Product.bHasOfferId);
+  Report->SetStringField(TEXT("offerId"), Product.OfferId);
+  Report->SetBoolField(TEXT("invalidOutcomeRejected"), !Request->TryComplete(static_cast<ENuxiePurchaseOutcome>(255), TEXT("Invalid protocol probe")));
+  Report->SetBoolField(TEXT("pendingAfterInvalid"), Request->IsPending());
+  Report->SetBoolField(TEXT("completionAccepted"), Request->TryComplete(Outcome, TEXT("Simulated development controller outcome")));
+  Report->SetBoolField(TEXT("duplicateRejected"), !Request->TryComplete(Outcome, TEXT("Duplicate protocol probe")));
+  Report->SetBoolField(TEXT("pendingAfterCompletion"), Request->IsPending());
+  SaveExternalProbe(Report);
+}
+void ProbeExternalRestore(UNuxieRestoreRequest* Request) {
+  const FString Name = ExternalProbeOutcome(TEXT("externalRestoreOutcome"));
+  if (Name.IsEmpty()) return;
+  ENuxieRestoreOutcome Outcome;
+  if (Name == TEXT("restored")) Outcome = ENuxieRestoreOutcome::Restored;
+  else if (Name == TEXT("noPurchases")) Outcome = ENuxieRestoreOutcome::NoPurchases;
+  else if (Name == TEXT("failed")) Outcome = ENuxieRestoreOutcome::Failed;
+  else { UE_LOG(LogTemp, Error, TEXT("NuxieLab: invalid externalRestoreOutcome; request retained.")); return; }
+  auto Report = MakeShared<FJsonObject>();
+  Report->SetStringField(TEXT("kind"), TEXT("restore"));
+  Report->SetStringField(TEXT("outcome"), Name);
+  Report->SetBoolField(TEXT("invalidOutcomeRejected"), !Request->TryComplete(static_cast<ENuxieRestoreOutcome>(255), TEXT("Invalid protocol probe")));
+  Report->SetBoolField(TEXT("pendingAfterInvalid"), Request->IsPending());
+  Report->SetBoolField(TEXT("completionAccepted"), Request->TryComplete(Outcome, TEXT("Simulated development controller outcome")));
+  Report->SetBoolField(TEXT("duplicateRejected"), !Request->TryComplete(Outcome, TEXT("Duplicate protocol probe")));
+  Report->SetBoolField(TEXT("pendingAfterCompletion"), Request->IsPending());
+  SaveExternalProbe(Report);
+}
+#endif
 // Native translation of Nuxie's dark canvas, smoked surfaces and foreground tokens.
 const FLinearColor Canvas(0.018f, 0.017f, 0.025f, 1);
 const FLinearColor Surface(0.09f, 0.09f, 0.11f, 1);
@@ -75,11 +152,17 @@ void UNuxieLabPresentation::Deinitialize() {
 void UNuxieLabBilling::BeginPurchase_Implementation(UNuxiePurchaseRequest* Request) {
   if (Purchase && Purchase->IsPending()) { Request->TryComplete(ENuxiePurchaseOutcome::Failed, TEXT("The Lab already has a checkout.")); return; }
   Purchase = Request;
+#if UE_BUILD_DEVELOPMENT
+  ProbeExternalPurchase(Request);
+#endif
   UE_LOG(LogTemp, Display, TEXT("NuxieLab external checkout retained. Use Cancel external checkout, or wait for the native deadline. Inspect Purchase.Product for the selected store offer."));
 }
 void UNuxieLabBilling::BeginRestore_Implementation(UNuxieRestoreRequest* Request) {
   if (Restore && Restore->IsPending()) { Request->TryComplete(ENuxieRestoreOutcome::Failed, TEXT("The Lab already has a restore.")); return; }
   Restore = Request;
+#if UE_BUILD_DEVELOPMENT
+  ProbeExternalRestore(Request);
+#endif
   UE_LOG(LogTemp, Display, TEXT("NuxieLab external restore retained. Use Fail external restore, or wait for the native deadline."));
 }
 bool UNuxieLabBilling::CancelPurchase() { return Purchase && Purchase->TryComplete(ENuxiePurchaseOutcome::Cancelled, TEXT("Cancelled in the Lab's external billing harness.")); }
@@ -117,7 +200,7 @@ void UNuxieLabWidget::Log(const FString& Text) {
   Observation->SetBoolField(TEXT("paused"), UGameplayStatics::IsGamePaused(this));
   Observation->SetBoolField(TEXT("presenting"), GetGameInstance()->GetSubsystem<UNuxieLabPresentation>()->IsPresenting());
   FString Line; FJsonSerializer::Serialize(Observation, TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Line));
-  const FString Directory = FPaths::ProjectSavedDir() / TEXT("NuxieLab");
+  const FString Directory = LabDirectory();
   IFileManager::Get().MakeDirectory(*Directory, true);
   FFileHelper::SaveStringToFile(Line + TEXT("\n"), *(Directory / TEXT("observations.jsonl")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
 #endif
@@ -186,7 +269,7 @@ void UNuxieLabWidget::AppAction(const FNuxieAppAction& Value) {
   // Opt-in device qualification: a local rejection must settle while the
   // native screen remains open, without relying on another native message.
   FString Json; TSharedPtr<FJsonObject> Settings; bool bValidateOverlayDispatch = false;
-  if (FFileHelper::LoadFileToString(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json"))) &&
+  if (FFileHelper::LoadFileToString(Json, *(LabDirectory() / TEXT("auto.json"))) &&
       FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) && Settings) {
     Settings->TryGetBoolField(TEXT("validateOverlayDispatch"), bValidateOverlayDispatch);
   }
@@ -202,7 +285,7 @@ void UNuxieLabWidget::AppAction(const FNuxieAppAction& Value) {
     Settings->SetBoolField(TEXT("travelOnAppAction"), false);
     Settings->SetBoolField(TEXT("resumePresentationTravel"), true);
     FJsonSerializer::Serialize(Settings.ToSharedRef(), TJsonWriterFactory<>::Create(&Json));
-    if (!FFileHelper::SaveStringToFile(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json")))) { Log(TEXT("Cannot persist presentation travel continuation.")); return; }
+    if (!FFileHelper::SaveStringToFile(Json, *(LabDirectory() / TEXT("auto.json")))) { Log(TEXT("Cannot persist presentation travel continuation.")); return; }
     Log(TEXT("Travel requested while Experience is open."));
     UGameplayStatics::OpenLevel(this, FName(TEXT("LabSecond")));
   }
@@ -245,7 +328,7 @@ void UNuxieLabWidget::ValidationFinished(bool bPassed, const FString& Message) {
   Report->SetStringField(TEXT("operationId"), Save->Command.OperationId);
   FString Json;
   FJsonSerializer::Serialize(Report, TJsonWriterFactory<>::Create(&Json));
-  const FString Directory = FPaths::ProjectSavedDir() / TEXT("NuxieLab");
+  const FString Directory = LabDirectory();
   IFileManager::Get().MakeDirectory(*Directory, true);
   const bool bSaved = FFileHelper::SaveStringToFile(Json, *(Directory / TEXT("validation.json")));
   Log((bPassed ? TEXT("PASS: ") : TEXT("FAIL: ")) + Message + (bSaved ? TEXT(" Report: Saved/NuxieLab/validation.json") : TEXT(" Could not save the validation report.")));
@@ -310,7 +393,8 @@ void UNuxieLabWidget::LifecycleFinished(bool bPassed, const FString& Message) {
   Report->SetStringField(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
   Report->SetStringField(TEXT("map"), GetWorld()->GetMapName());
   FString Json; FJsonSerializer::Serialize(Report, TJsonWriterFactory<>::Create(&Json));
-  FFileHelper::SaveStringToFile(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/lifecycle.json")));
+  IFileManager::Get().MakeDirectory(*LabDirectory(), true);
+  FFileHelper::SaveStringToFile(Json, *(LabDirectory() / TEXT("lifecycle.json")));
   Log((bPassed ? TEXT("PASS lifecycle: ") : TEXT("FAIL lifecycle: ")) + Message);
 }
 void UNuxieLabWidget::RunLifecycle(int32 Step) {
@@ -363,7 +447,7 @@ void UNuxieLabWidget::RunLifecycle(int32 Step) {
       Client->Configure(Options, Next); break;
     }
     case 13: {
-      const FString Path = FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json");
+      const FString Path = LabDirectory() / TEXT("auto.json");
       FString Json; TSharedPtr<FJsonObject> Settings;
       if (!FFileHelper::LoadFileToString(Json, *Path) || !FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings)) { LifecycleFinished(false, TEXT("Cannot save map-travel continuation.")); return; }
       Settings->SetBoolField(TEXT("resumeLifecycle"), true); Settings->SetBoolField(TEXT("lifecycle"), false);
@@ -380,7 +464,7 @@ void UNuxieLabWidget::NativeConstruct() {
   Super::NativeConstruct();
 #if UE_BUILD_DEVELOPMENT
   // Explicit, local opt-in for device validation; no private SDK hooks or synthetic grants.
-  const FString Path = FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json");
+  const FString Path = LabDirectory() / TEXT("auto.json");
   Log(TEXT("Development runner settings: ") + Path);
   FString Json; TSharedPtr<FJsonObject> Settings;
   if (!FFileHelper::LoadFileToString(Json, *Path)) { Log(TEXT("No development runner settings loaded; use the Lab controls for manual validation.")); return; }
@@ -417,6 +501,11 @@ void UNuxieLabWidget::NativeConstruct() {
     if (!bPaused) return;
   }
   FNuxieOptions Options; Options.IOSPublicKey = Options.AndroidPublicKey = Key; Options.Environment = ENuxieEnvironment::Development; Options.LogLevel = ENuxieLogLevel::Debug;
+  bool bExternalBilling = false; Settings->TryGetBoolField(TEXT("externalBilling"), bExternalBilling);
+  if (bExternalBilling) {
+    Options.BillingMode = ENuxieBillingMode::External;
+    Options.ExternalController = GetGameInstance()->GetSubsystem<UNuxieLabBilling>();
+  }
   bool bConfigureOnly = false; Settings->TryGetBoolField(TEXT("configureOnly"), bConfigureOnly);
   FString TriggerEvent; if (Settings->TryGetStringField(TEXT("triggerEvent"), TriggerEvent)) Event->SetText(FText::FromString(TriggerEvent));
   bOperationPending = true;
