@@ -11,6 +11,8 @@ public:
   UFUNCTION(BlueprintCallable, Category="Nuxie|Values") static bool ParseValue(const FString& Json, FNuxieJsonValue& Value, FString& Error);
   UFUNCTION(BlueprintPure, Category="Nuxie|Values") static FNuxieJsonValue StringValue(const FString& Value);
   UFUNCTION(BlueprintPure, Category="Nuxie|Values") static FNuxieJsonValue BoolValue(bool Value);
+  UFUNCTION(BlueprintCallable, Category="Nuxie|Values") static bool IntegerValue(int64 Integer, FNuxieJsonValue& Value, FString& Error);
+  UFUNCTION(BlueprintPure, Category="Nuxie|Values") static FNuxieProperties MakeProperties() { return FNuxieProperties(); }
   UFUNCTION(BlueprintCallable, Category="Nuxie|Values") static bool NumberValue(double Number, FNuxieJsonValue& Value, FString& Error);
   UFUNCTION(BlueprintPure, Category="Nuxie|Values") static FNuxieJsonValue NullValue();
   UFUNCTION(BlueprintPure, Category="Nuxie|Values") static FNuxieJsonValue ObjectValue(const FNuxieProperties& Properties);

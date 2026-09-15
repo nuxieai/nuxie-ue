@@ -167,20 +167,19 @@ Native Experiences appear above Unreal's viewport. Your game owns pause, input, 
 
 ### Structured input values
 
-`FNuxieProperties` represents an immutable-by-value object. Blueprint provides `StringValue`, `BoolValue`, `NumberValue`, `NullValue`, `ObjectValue`, `ArrayValue`, and `WithProperty`. Use `ParseProperties` for existing JSON data and check its boolean result and error output.
+`FNuxieProperties` stores an object by value. C++ builders (`WithString`, `WithBool`, `WithInteger`, `WithNumber`, `WithNull`, `WithObject`, `WithArray`) update it on success and return a boolean plus an error string. Blueprint provides `MakeProperties`, `StringValue`, `BoolValue`, `IntegerValue`, `NumberValue`, `NullValue`, `ObjectValue`, `ArrayValue`, and `WithProperty`. Use `ParseProperties` for existing JSON data and check its boolean result and error output.
 
 ```cpp
 FNuxieProperties Properties;
 FString Error;
-if (FNuxieProperties::TryParse(
-        TEXT("{\"source\":\"inventory\",\"items\":[1,true,null]}"),
-        Properties, Error))
+if (Properties.WithString(TEXT("source"), TEXT("inventory"), Error)
+    && Properties.WithInteger(TEXT("level"), 12, Error))
 {
     Client->Trigger(TEXT("shop_opened"), Properties, Completion);
 }
 ```
 
-Nested arrays and objects are supported to depth 32. Inputs reject non-finite numbers and integers outside the portable exact range. Failed parsing preserves the previous value. Event names beginning with `$` are reserved for SDK telemetry.
+Nested arrays and objects are supported to depth 32. Inputs reject non-finite numbers and integers outside the portable exact range. Failed parsing or building preserves the previous value. Event names beginning with `$` are reserved for SDK telemetry.
 
 ## Purchases: native by default
 
@@ -202,7 +201,7 @@ BeginRestore(Request)
   → Request.TryComplete(Restored / NoPurchases / Failed, Message)
 ```
 
-The subsystem retains the controller across maps and retains pending request objects. A request permits one completion, expires after its native deadline, and becomes inactive at identity invalidation or shutdown. `TryComplete` returns false for an inactive request. Internal correlation IDs are private.
+The subsystem retains the controller across maps and retains pending request objects. A request permits one completion, expires after its native deadline, and becomes inactive at identity invalidation or shutdown. `TryComplete` returns false for an inactive request or failed bridge admission. A still-pending request can retry admission before its deadline. Internal correlation IDs are private.
 
 Honor the selected product, Android base plan, purchase option, and offer supplied in `Request.Product`. Your external billing integration finishes or acknowledges transactions. Avoid running native Nuxie checkout and another billing owner for the same transaction.
 
@@ -222,6 +221,7 @@ Connect every async **Failure** pin. Branch on `Error.Code`; messages are diagno
 | `SDKShutdown` | Shutdown invalidated the operation |
 | `OperationTimeout` | No reply within the active dispatch timeout; preserve durable operation IDs |
 | `InvalidResponse` / `IncompatibleBridge` | Inspect packaging, contract version, and native pins |
+| `Overloaded` | Wait for pending operations; an activity overflow means observational events were dropped |
 | `NativeError` | Inspect `NativeCode` and the diagnostic message |
 
 Equivalent concurrent configuration shares setup. To change keys, options, or controllers, await `Shutdown` and configure again. A failed cleanup retains the native lease until shutdown succeeds, preventing another instance from inheriting uncertain customer state.

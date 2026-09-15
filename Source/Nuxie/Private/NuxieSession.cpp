@@ -108,7 +108,14 @@ if (!NativeAvailable()) {
     // A failed or timed-out setup may still own native state. Keep the lease until shutdown acknowledges cleanup.
   });
 }
-void FNuxieSession::Send(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply) {
+bool FNuxieSession::Send(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply) {
+  const bool bCheckout = Method == TEXT("completePurchase") || Method == TEXT("completeRestore");
+  const bool bLifecycle = Method == TEXT("configure") || Method == TEXT("shutdown") || Method == TEXT("identify") || Method == TEXT("reset");
+  const int32 Capacity = bLifecycle ? 132 : bCheckout ? 128 : 64;
+  if (Replies.Num() >= Capacity) {
+    Defer([Reply = MoveTemp(Reply)]() mutable { Reply(nullptr, NuxieWire::Error(ENuxieErrorCode::Overloaded, TEXT("Native admission is full. Wait for a completion before retrying."))); });
+    return false;
+  }
   const FString Id = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
   Arguments->SetStringField(TEXT("session"), SessionId);
   auto Envelope = Empty(); Envelope->SetStringField(TEXT("requestId"), Id); Envelope->SetStringField(TEXT("method"), Method); Envelope->SetObjectField(TEXT("arguments"), Arguments);
@@ -117,7 +124,9 @@ void FNuxieSession::Send(const FString& Method, NuxieWire::FObject Arguments, bo
   if (!Transport->Submit(NuxieWire::Json(Envelope))) {
     auto Self = AsShared();
     Defer([Self, Id]() { Self->Finish(Id, nullptr, NuxieWire::Error(ENuxieErrorCode::NativeError, TEXT("Native dispatch failed."))); });
+    return false;
   }
+  return true;
 }
 void FNuxieSession::Call(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply) {
   check(IsInGameThread());
@@ -138,7 +147,7 @@ bool FNuxieSession::Tick(float Delta) {
   check(IsInGameThread());
   if (bForeground) ActiveTime += FMath::Min(static_cast<double>(Delta), 1.0);
   FString Message;
-  for (int32 Count = 0; Count < 256 && Transport->Poll(Message); ++Count) {
+  for (int32 Count = 0; Count < 256 && NativeOwner.Get() == this && Transport->Poll(Message); ++Count) {
     auto Envelope = NuxieWire::Object(Message);
     if (!Envelope) { if (Owner.IsValid()) Owner->OnError.Broadcast(InvalidResponse()); continue; }
     FString Id;
@@ -149,6 +158,7 @@ bool FNuxieSession::Tick(float Delta) {
       Finish(Id, Value, Error ? NuxieWire::NativeError(Error) : FNuxieError());
     } else Event(Envelope);
   }
+  if (NativeOwner.Get() != this) return false;
   for (const auto& Id : Ledger.expired(ActiveTime)) Finish(UTF8_TO_TCHAR(Id.c_str()), nullptr, NuxieWire::Error(ENuxieErrorCode::OperationTimeout, TEXT("The operation timed out. Reconcile durable usage with the same operation ID.")));
   if (Owner.IsValid()) {
     const double Now = FDateTime::UtcNow().ToUnixTimestamp() * 1000.0;
@@ -169,6 +179,9 @@ bool FNuxieSession::AdoptIdentity(const NuxieWire::FObject& Value) {
 void FNuxieSession::ChangeIdentity(const FString& Method, NuxieWire::FObject Arguments, FNuxieCompletion Completion) {
   if (Status.Kind != ENuxieStatusKind::Ready || bChangingIdentity) {
     Defer([Completion]() { Completion.ExecuteIfBound(Result(NuxieWire::Error(ENuxieErrorCode::LifecycleBusy, TEXT("Configure and finish any previous identity change first.")))); }); return;
+  }
+  if (Replies.Num() >= 64) {
+    Defer([Completion]() { Completion.ExecuteIfBound(Result(NuxieWire::Error(ENuxieErrorCode::Overloaded, TEXT("Wait for pending operations before changing identity.")))); }); return;
   }
   ++IdentityEpoch; bChangingIdentity = true;
   Features = FNuxieFeatureSnapshot(); PublishFeatures();
@@ -220,15 +233,17 @@ void FNuxieSession::Shutdown(FNuxieCompletion Completion) {
 bool FNuxieSession::CompleteCheckout(const FString& Method, const FString& RequestId, const FString& ResultJson) {
   if (Status.Kind != ENuxieStatusKind::Ready || bChangingIdentity) return false;
   auto Args = Empty(); Args->SetStringField(TEXT("requestId"), RequestId); Args->SetStringField(TEXT("result"), ResultJson);
-  Send(Method, Args, true, [Weak = Owner](NuxieWire::FObject, FNuxieError Error) { if (Weak.IsValid() && Error.Code != ENuxieErrorCode::None) Weak->OnError.Broadcast(Error); });
-  return true;
+  return Send(Method, Args, true, [Weak = Owner](NuxieWire::FObject, FNuxieError Error) { if (Weak.IsValid() && Error.Code != ENuxieErrorCode::None) Weak->OnError.Broadcast(Error); });
 }
 void FNuxieSession::Event(const NuxieWire::FObject& Envelope) {
   FString Session, Name;
   if (!Owner.IsValid() || !Envelope->TryGetStringField(TEXT("session"), Session) || Session != SessionId || !Envelope->TryGetStringField(TEXT("name"), Name)) return;
   auto Payload = Child(Envelope, TEXT("payload"));
   if (!Payload || Status.Kind != ENuxieStatusKind::Ready) return;
-  if (Name == TEXT("features")) {
+  if (!NuxieWire::EventMatchesIdentity(Envelope, SessionId, Features.IdentityGeneration, bChangingIdentity)) return;
+  if (Name == TEXT("overflow")) {
+    Owner->OnError.Broadcast(NuxieWire::Error(ENuxieErrorCode::Overloaded, TEXT("The native activity buffer overflowed. Some observational events were dropped; replies and checkout requests retain reserved capacity.")));
+  } else if (Name == TEXT("features")) {
     FNuxieFeatureSnapshot Next;
     if (bChangingIdentity || !NuxieWire::Snapshot(Payload, Next) || Next.IdentityGeneration != Features.IdentityGeneration) return;
     const auto Revision = nuxie::counter(TCHAR_TO_UTF8(*Next.Revision));

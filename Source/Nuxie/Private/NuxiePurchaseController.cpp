@@ -12,15 +12,17 @@ bool UNuxieRestoreRequest::IsPending() const { return IsPendingAt(NowMs()); }
 bool UNuxiePurchaseRequest::TryComplete(ENuxiePurchaseOutcome Outcome, const FString& Message) {
   check(IsInGameThread());
   if (!IsPending()) return false;
-  bPending = false;
-  return Session.Pin()->CompleteCheckout(TEXT("completePurchase"), RequestId, OutcomeJson(StaticEnum<ENuxiePurchaseOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower(), Message));
+  const bool bAccepted = Session.Pin()->CompleteCheckout(TEXT("completePurchase"), RequestId, OutcomeJson(StaticEnum<ENuxiePurchaseOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower(), Message));
+  if (bAccepted) bPending = false;
+  return bAccepted;
 }
 bool UNuxieRestoreRequest::TryComplete(ENuxieRestoreOutcome Outcome, const FString& Message) {
   check(IsInGameThread());
   if (!IsPending()) return false;
-  bPending = false;
   const FString Type = Outcome == ENuxieRestoreOutcome::NoPurchases ? TEXT("noPurchases") : StaticEnum<ENuxieRestoreOutcome>()->GetNameStringByValue(static_cast<int64>(Outcome)).ToLower();
-  return Session.Pin()->CompleteCheckout(TEXT("completeRestore"), RequestId, OutcomeJson(Type, Message));
+  const bool bAccepted = Session.Pin()->CompleteCheckout(TEXT("completeRestore"), RequestId, OutcomeJson(Type, Message));
+  if (bAccepted) bPending = false;
+  return bAccepted;
 }
 void INuxiePurchaseController::BeginPurchase_Implementation(UNuxiePurchaseRequest* Request) { Request->TryComplete(ENuxiePurchaseOutcome::Failed, TEXT("BeginPurchase is not implemented.")); }
 void INuxiePurchaseController::BeginRestore_Implementation(UNuxieRestoreRequest* Request) { Request->TryComplete(ENuxieRestoreOutcome::Failed, TEXT("BeginRestore is not implemented.")); }

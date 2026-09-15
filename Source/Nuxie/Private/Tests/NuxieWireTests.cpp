@@ -5,6 +5,16 @@
 #include "NuxieBlueprintLibrary.h"
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNuxieWireContract, "Nuxie.Contract.ValuesAndReceipts", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FNuxieWireContract::RunTest(const FString&) {
+  for (const TCHAR* Name : { TEXT("appAction"), TEXT("activity"), TEXT("purchase"), TEXT("restore"), TEXT("features") }) {
+    auto Event = NuxieWire::Object(TEXT("{\"session\":\"current\",\"identityGeneration\":\"2\"}"));
+    Event->SetStringField(TEXT("name"), Name);
+    TestTrue(TEXT("current customer event admitted"), NuxieWire::EventMatchesIdentity(Event, TEXT("current"), TEXT("2"), false));
+    TestFalse(TEXT("queued old customer event rejected after identify"), NuxieWire::EventMatchesIdentity(Event, TEXT("current"), TEXT("3"), false));
+    TestFalse(TEXT("event rejected while identity is changing"), NuxieWire::EventMatchesIdentity(Event, TEXT("current"), TEXT("2"), true));
+    TestFalse(TEXT("event rejected from old game session"), NuxieWire::EventMatchesIdentity(Event, TEXT("replacement"), TEXT("2"), false));
+    Event->RemoveField(TEXT("identityGeneration"));
+    TestFalse(TEXT("missing provenance fails closed"), NuxieWire::EventMatchesIdentity(Event, TEXT("current"), TEXT("2"), false));
+  }
   FNuxieProperties Properties; FString Error;
   TestTrue(TEXT("nested portable values"), FNuxieProperties::TryParse(TEXT("{\"name\":\"🎮 café\",\"items\":[true,null,{\"n\":9007199254740991}]}"), Properties, Error));
   const FString Before = Properties.ToJson();
@@ -13,6 +23,22 @@ bool FNuxieWireContract::RunTest(const FString&) {
   TestFalse(TEXT("root must be object"), FNuxieProperties::TryParse(TEXT("[]"), Properties, Error));
   FNuxieJsonValue Number;
   TestFalse(TEXT("reject infinity"), UNuxieBlueprintLibrary::NumberValue(std::numeric_limits<double>::infinity(), Number, Error));
+  TestTrue(TEXT("typed integer maximum accepted"), Properties.WithInteger(TEXT("count"), 9007199254740991LL, Error));
+  const FString TypedBefore = Properties.ToJson();
+  TestFalse(TEXT("integer bounds checked before double conversion"), Properties.WithInteger(TEXT("count"), MAX_int64, Error));
+  TestEqual(TEXT("failed builder preserves properties"), Properties.ToJson(), TypedBefore);
+  TestTrue(TEXT("typed string escapes JSON"), Properties.WithString(TEXT("quoted"), TEXT("a\"b"), Error));
+  TestEqual(TEXT("typed string round trips"), NuxieWire::Object(Properties.ToJson())->GetStringField(TEXT("quoted")), FString(TEXT("a\"b")));
+  TestTrue(TEXT("typed boolean"), Properties.WithBool(TEXT("enabled"), true, Error));
+  TestTrue(TEXT("typed null"), Properties.WithNull(TEXT("empty"), Error));
+  TArray<FNuxieJsonValue> Items = { UNuxieBlueprintLibrary::StringValue(TEXT("value")), UNuxieBlueprintLibrary::NullValue() };
+  TestTrue(TEXT("typed scalar array"), Properties.WithArray(TEXT("items"), Items, Error));
+  auto Built = NuxieWire::Object(Properties.ToJson());
+  TestTrue(TEXT("boolean round trips"), Built && Built->GetBoolField(TEXT("enabled")));
+  TestTrue(TEXT("null round trips"), Built && Built->GetField<EJson::Null>(TEXT("empty"))->IsNull());
+  TestEqual(TEXT("array contains both values"), Built->GetArrayField(TEXT("items")).Num(), 2);
+  FNuxieJsonValue Parsed;
+  TestFalse(TEXT("multiple root values rejected"), FNuxieJsonValue::TryParse(TEXT("1,2"), Parsed, Error));
   auto AccessObject = NuxieWire::Object(TEXT("{\"allowed\":false,\"unlimited\":false,\"balance\":0,\"type\":\"metered\"}"));
   FNuxieFeatureAccess Access;
   TestTrue(TEXT("zero access decodes"), NuxieWire::Access(AccessObject, Access));

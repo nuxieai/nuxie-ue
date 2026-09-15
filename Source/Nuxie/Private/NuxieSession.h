@@ -43,7 +43,7 @@ private:
   FDelegateHandle ForegroundHandle;
   void Start();
   bool Tick(float Delta);
-  void Send(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply);
+  bool Send(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply);
   void Finish(const FString& Id, NuxieWire::FObject Value, FNuxieError Error);
   void SetStatus(ENuxieStatusKind Kind, FNuxieError Error = FNuxieError());
   bool AdoptIdentity(const NuxieWire::FObject& Value);

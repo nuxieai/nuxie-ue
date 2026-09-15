@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.lang.ref.WeakReference
 
 class NuxieUnrealRuntime(activity: android.app.Activity, private val callback: Callback) {
-  interface Callback { fun onMessage(message: String) }
+  interface Callback { fun onMessage(message: String): Boolean }
   private var activityReference = WeakReference(activity)
   private val context = activity.applicationContext
   companion object {
@@ -21,25 +21,25 @@ class NuxieUnrealRuntime(activity: android.app.Activity, private val callback: C
     private var configurationKey: String? = null
   }
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-  private var session: String? = null
+  @Volatile private var session: String? = null
   private var snapshotJob: Job? = null
-  private val purchases = NuxiePurchaseDelegateBridge(emitEvent = { name, value -> scope.launch { send(name, value) } })
+  private val purchases = NuxiePurchaseDelegateBridge(emitEvent = { name, value -> send(name, value) })
   private val listener = object : NuxieListener {
     override fun onActivityEmitted(sdk: Nuxie, info: NuxieActivityInfo) {
-      scope.launch { send("activity", mapOf("schemaVersion" to NuxieActivityInfo.SCHEMA_VERSION,
+      send("activity", mapOf("schemaVersion" to NuxieActivityInfo.SCHEMA_VERSION,
         "id" to info.id, "timestampMs" to info.timestampMillis, "receivedAtMs" to info.receivedAtMillis,
         "name" to info.name, "properties" to info.properties.mapValues { (_, v) -> when(v) {
           is NuxieActivityValue.String -> mapOf("kind" to "string", "value" to v.value); is NuxieActivityValue.Int -> mapOf("kind" to "integer", "value" to v.value.toString())
           is NuxieActivityValue.Double -> mapOf("kind" to "number", "value" to v.value); is NuxieActivityValue.Bool -> mapOf("kind" to "boolean", "value" to v.value)
-        } })) }
+        } }))
     }
     override fun onAppActionRequested(sdk: Nuxie, action: AppAction) {
-      scope.launch { send("appAction", mapOf("name" to action.name,
+      send("appAction", mapOf("name" to action.name,
         "payload" to action.payload?.mapValues { (_, v) -> when(v) {
           is AppActionValue.String -> mapOf("kind" to "string", "value" to v.value); is AppActionValue.Int -> mapOf("kind" to "integer", "value" to v.value.toString())
           is AppActionValue.Double -> mapOf("kind" to "number", "value" to v.value); is AppActionValue.Bool -> mapOf("kind" to "boolean", "value" to v.value)
         } }, "experience" to mapOf("experienceId" to action.experience.experienceId,
-          "experienceVersion" to action.experience.experienceVersion, "journeyId" to action.experience.journeyId))) }
+          "experienceVersion" to action.experience.experienceVersion, "journeyId" to action.experience.journeyId)))
     }
   }
   fun attachActivity(activity: android.app.Activity) { activityReference = WeakReference(activity) }
@@ -78,9 +78,12 @@ class NuxieUnrealRuntime(activity: android.app.Activity, private val callback: C
       }
     } catch (e: Exception) { promise.reject("invalidArgument", e.message, e) }
   }
-  private fun send(name: String, payload: Map<String, Any?>) {
-    val attached = session ?: return
-    callback.onMessage(JSONObject(mapOf("session" to attached, "name" to name, "payload" to payload)).toString())
+  private fun send(name: String, payload: Map<String, Any?>): Boolean {
+    val attached = session ?: return false
+    // Capture provenance on the native callback thread, before any game-thread dispatch.
+    val generation = Nuxie.features.snapshot.value.identityGeneration.toString()
+    return callback.onMessage(JSONObject(mapOf("session" to attached, "identityGeneration" to generation,
+      "name" to name, "payload" to payload)).toString())
   }
   private fun run(promise: Promise, attached: String? = null, block: suspend () -> Any?) {
     scope.launch {

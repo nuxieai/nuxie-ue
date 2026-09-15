@@ -52,8 +52,9 @@ class FLifecycleCommand : public IAutomationLatentCommand {
   TStrongObjectPtr<UNuxieSubsystem> A{NewObject<UNuxieSubsystem>(InstanceA.Get())};
   TStrongObjectPtr<UNuxieSubsystem> B{NewObject<UNuxieSubsystem>(InstanceB.Get())};
   FNuxieOptions Options;
-  int32 Phase = 0, SetupReplies = 0;
-  bool bOtherRejected = false, bIdentified = false, bQueryFinished = false, bReset = false, bConsumed = false, bTimedOut = false, bShutdown = false;
+  int32 Phase = 0, SetupReplies = 0, BurstReplies = 0, BurstRejected = 0;
+  bool bIdentityOverloaded = false;
+  bool bOtherRejected = false, bIdentified = false, bQueryFinished = false, bReset = false, bConsumed = false, bTimedOut = false, bShutdown = false, bReconfigured = false;
   double Started = FPlatformTime::Seconds();
 public:
   explicit FLifecycleCommand(FAutomationTestBase* InTest) : Test(InTest) { Options.AndroidPublicKey = TEXT("public_test"); Options.IOSPublicKey = TEXT("public_test"); }
@@ -94,7 +95,35 @@ public:
       Phase = 9;
     } else if (Phase == 9 && bShutdown) {
       Test->TestEqual(TEXT("reentrant cancellation sends one native shutdown per session"), Fixture->Shutdowns, 2);
-      FNuxieSession::SetTestTransport({}); return true;
+      bShutdown = false;
+      A->Configure(Options, FNuxieCompletion::CreateLambda([this](const FNuxieResult& R) {
+        Test->TestTrue(TEXT("setup before callback reconfiguration succeeds"), R.IsSuccess());
+        A->Shutdown(FNuxieCompletion::CreateLambda([this](const FNuxieResult& Closed) {
+          Test->TestTrue(TEXT("shutdown callback may reconfigure"), Closed.IsSuccess());
+          A->Configure(Options, FNuxieCompletion::CreateLambda([this](const FNuxieResult& Reopened) {
+            Test->TestTrue(TEXT("old poller cannot steal new session reply"), Reopened.IsSuccess()); bReconfigured = true;
+          }));
+        }));
+      }));
+      Phase = 10;
+    } else if (Phase == 10 && bReconfigured) {
+      for (int32 Index = 0; Index < 65; ++Index) {
+        A->GetIdentity(FNuxieIdentityCompletion::CreateLambda([this](const TNuxieResult<FNuxieIdentity>& R) {
+          if (R.IsSuccess()) ++BurstReplies;
+          else { Test->TestTrue(TEXT("excess admission fails explicitly"), R.GetError().Code == ENuxieErrorCode::Overloaded); ++BurstRejected; }
+        }));
+      }
+      A->Identify(TEXT("unadmitted"), FNuxieIdentityOptions(), FNuxieCompletion::CreateLambda([this](const FNuxieResult& R) {
+        Test->TestTrue(TEXT("identity saturation rejects without changing customer"), R.GetError().Code == ENuxieErrorCode::Overloaded);
+        Test->TestTrue(TEXT("rejected identity preserves ready session"), A->GetStatus().Kind == ENuxieStatusKind::Ready);
+        Test->TestEqual(TEXT("rejected identity preserves snapshot customer"), A->GetFeatureSnapshot().CustomerId, FString(TEXT("rotated")));
+        bIdentityOverloaded = true;
+      }));
+      Phase = 11;
+    } else if (Phase == 11 && BurstReplies + BurstRejected == 65 && bIdentityOverloaded) {
+      Test->TestEqual(TEXT("reserved admission settles every accepted operation"), BurstReplies, 64);
+      Test->TestEqual(TEXT("excess operation rejected"), BurstRejected, 1);
+      A->Shutdown(FNuxieCompletion::CreateLambda([this](const FNuxieResult&) { bShutdown = true; })); Phase = 8;
     }
     return false;
   }

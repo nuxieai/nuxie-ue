@@ -31,6 +31,7 @@ private:
   void RestorePause();
   UFUNCTION() void Activity(const FNuxieActivity& Value);
   UFUNCTION() void Status(const FNuxieStatus& Value);
+  UFUNCTION() void Identity(const FNuxieIdentity& Value);
 };
 /** Game-instance lifetime: retained checkout survives widget destruction and map travel.
  * This manual harness demonstrates cancellation/failure, never fabricates store success. */

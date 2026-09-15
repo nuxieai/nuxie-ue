@@ -1,4 +1,6 @@
 #include "NuxieTypes.h"
+#include "NuxieBlueprintLibrary.h"
+#include "NuxieWire.h"
 #include "Dom/JsonValue.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -21,11 +23,11 @@ bool Portable(const TSharedPtr<FJsonValue>& Value, int32 Depth) {
   }
 }
 bool Parse(const FString& Input, bool bObject, FString& Output) {
-  TSharedPtr<FJsonValue> Value;
-  if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Input), Value) || !Portable(Value, 0)) return false;
+  auto Value = NuxieWire::Value(Input);
+  if (!Portable(Value, 0)) return false;
   if (bObject && Value->Type != EJson::Object) return false;
-  Output.Reset();
-  return FJsonSerializer::Serialize(Value.ToSharedRef(), TEXT(""), TJsonWriterFactory<>::Create(&Output));
+  Output = NuxieWire::JsonValue(Value);
+  return !Output.IsEmpty();
 }
 }
 bool FNuxieProperties::TryParse(const FString& Input, FNuxieProperties& Out, FString& Error) {
@@ -42,3 +44,11 @@ bool FNuxieJsonValue::TryParse(const FString& Input, FNuxieJsonValue& Out, FStri
   Out.Json = MoveTemp(Json);
   return true;
 }
+
+bool FNuxieProperties::WithString(const FString& Name, const FString& Value, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::StringValue(Value), *this, Error); }
+bool FNuxieProperties::WithBool(const FString& Name, bool Value, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::BoolValue(Value), *this, Error); }
+bool FNuxieProperties::WithInteger(const FString& Name, int64 Integer, FString& Error) { FNuxieJsonValue Value; return UNuxieBlueprintLibrary::IntegerValue(Integer, Value, Error) && UNuxieBlueprintLibrary::WithProperty(*this, Name, Value, *this, Error); }
+bool FNuxieProperties::WithNumber(const FString& Name, double Number, FString& Error) { FNuxieJsonValue Value; return UNuxieBlueprintLibrary::NumberValue(Number, Value, Error) && UNuxieBlueprintLibrary::WithProperty(*this, Name, Value, *this, Error); }
+bool FNuxieProperties::WithNull(const FString& Name, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::NullValue(), *this, Error); }
+bool FNuxieProperties::WithObject(const FString& Name, const FNuxieProperties& Value, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::ObjectValue(Value), *this, Error); }
+bool FNuxieProperties::WithArray(const FString& Name, const TArray<FNuxieJsonValue>& Values, FString& Error) { FNuxieJsonValue Value; return UNuxieBlueprintLibrary::ArrayValue(Values, Value, Error) && UNuxieBlueprintLibrary::WithProperty(*this, Name, Value, *this, Error); }

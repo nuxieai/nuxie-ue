@@ -4,7 +4,7 @@ import Foundation
 import Nuxie
 
 final class NuxiePurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Sendable {
-  private let emit: (String, [String: Any]) -> Void
+  private let emit: (String, [String: Any]) -> Bool
   private let timeoutSeconds: TimeInterval
   private let lock = NSLock()
   private var purchaseContinuations: [String: CheckedContinuation<PurchaseResult, Never>] = [:]
@@ -12,7 +12,7 @@ final class NuxiePurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Senda
 
   init(
     timeoutSeconds: TimeInterval = 60,
-    emit: @escaping (String, [String: Any]) -> Void
+    emit: @escaping (String, [String: Any]) -> Bool
   ) {
     self.timeoutSeconds = timeoutSeconds
     self.emit = emit
@@ -37,10 +37,17 @@ final class NuxiePurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Senda
     ]
 
     return await withCheckedContinuation { continuation in
-      lock.withLock {
+      let admitted = lock.withLock {
+        guard purchaseContinuations.count + restoreContinuations.count < 64 else { return false }
         purchaseContinuations[requestId] = continuation
+        return true
       }
-      emit("purchase", payload)
+      guard admitted else { continuation.resume(returning: .failed(bridgeError("bridge_overloaded"))); return }
+      guard emit("purchase", payload) else {
+        let rejected = lock.withLock { purchaseContinuations.removeValue(forKey: requestId) }
+        rejected?.resume(returning: .failed(bridgeError("bridge_overloaded")))
+        return
+      }
       schedulePurchaseTimeout(requestId: requestId)
     }
   }
@@ -55,10 +62,17 @@ final class NuxiePurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Senda
     ]
 
     return await withCheckedContinuation { continuation in
-      lock.withLock {
+      let admitted = lock.withLock {
+        guard purchaseContinuations.count + restoreContinuations.count < 64 else { return false }
         restoreContinuations[requestId] = continuation
+        return true
       }
-      emit("restore", payload)
+      guard admitted else { continuation.resume(returning: .failed(bridgeError("bridge_overloaded"))); return }
+      guard emit("restore", payload) else {
+        let rejected = lock.withLock { restoreContinuations.removeValue(forKey: requestId) }
+        rejected?.resume(returning: .failed(bridgeError("bridge_overloaded")))
+        return
+      }
       scheduleRestoreTimeout(requestId: requestId)
     }
   }
