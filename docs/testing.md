@@ -110,8 +110,32 @@ unsupported enum values before submission. The purchase report failed at
 retained pending state, valid cancellation, duplicate rejection, and the expected
 `nuxie_qualification` product / `monthly` base plan. The patched APK SHA-256 is
 `648b5cb1d928d25fd39f35d7ad5fb76ad1aaa9c39c9709e70f0fbd737eb679d2`.
-This runtime change still requires the remaining outcome/platform checks and a
-new prepared-consumer build; earlier prepared artifacts do not include it.
+The iOS outcome/platform checks and configured iOS prepared consumer remain
+outstanding. Earlier prepared artifacts do not include this runtime fix; the new
+archive and Android consumer evidence are recorded below.
+
+On this patched APK, all seven Android controller outcomes subsequently passed:
+purchase failed at 19:39:53, pending at 19:41:06, purchased at 19:41:55, and restore
+restored at 19:42:23, no-purchases at 19:43:03, failed at 19:43:38. Cancellation is
+recorded above. Every report rejected invalid/duplicate completion and matched its
+native activity. Pending retained presentation; terminal authored routes completed
+and released the Lab pause. These are simulated controller outcomes, not store proof.
+
+Prepared archive `prepared-all-5684788` built for IOS+Android+Mac and verified all
+285 manifest hashes. A fresh content-only Android consumer, with clean app data,
+ran the real Blueprint identity-success branch at 19:56:56.481 UTC, rendered the
+backend's published Experience, and returned to Unreal on authored Close. All 120
+non-generated plugin files retained their supplied hashes; Unreal regenerated
+host-specific binaries and UHT files during the consumer build.
+
+The patched Android Lab passed its backend lifecycle through `LabSecond` at
+19:49:41.409 UTC. Its debit check then exposed a Lab persistence failure in external
+storage, before any debit was sent. Android Lab saves now serialize through Unreal's
+SaveGame API into private app storage, write a temporary file, and replace the
+previous save using the platform rename operation. The debit/replay check passed at
+19:59:44.735; a process restart replayed that same operation at 20:00:48.571 with
+`replay yes` and exactly one applied action. This Lab-only change leaves the prepared
+plugin runtime unchanged.
 
 On Android, the external restore reached the retained C++ controller while the Experience covered paused gameplay at 16:27:55.220 UTC. Its 60-second native deadline produced the authored failure route and released pause at 16:28:55.280. Inspection then reported no pending restore, and a late completion was rejected.
 
@@ -151,7 +175,7 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 ## Remaining qualification
 
 - Diagnose the first-run iOS lifecycle failure. Subsequent lifecycle/debit passes do not explain that intermittent result. Physical Lab touch input passed; use direct touch for Unreal controls that Mirroring does not forward.
-- Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
+- Complete the iOS external billing outcome matrix, including expiry/teardown. Android outcome and product/base-plan checks passed on the patched runtime; repeat its expiry/teardown checks for the final candidate. Earlier Android expiry and shutdown evidence is recorded above.
 - Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery; managed Play purchase/restore and live-price evidence are recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
