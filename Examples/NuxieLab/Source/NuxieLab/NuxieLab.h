@@ -34,7 +34,8 @@ private:
   UFUNCTION() void Identity(const FNuxieIdentity& Value);
 };
 /** Game-instance lifetime: retained checkout survives widget destruction and map travel.
- * This manual harness demonstrates cancellation/failure, never fabricates store success. */
+ * Manual controls demonstrate cancellation/failure. Opt-in development probes simulate
+ * controller protocol outcomes; they do not verify a store transaction or grant access. */
 UCLASS()
 class UNuxieLabBilling : public UGameInstanceSubsystem, public INuxiePurchaseController {
   GENERATED_BODY()
