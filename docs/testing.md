@@ -74,6 +74,21 @@ On Android, the external restore reached the retained C++ controller while the E
 
 A second restore remained pending after presentation dismissal. SDK shutdown completed at 16:30:11.944, invalidated the retained request, and rejected a subsequent completion. These checks validate external-controller delivery, expiry and teardown; they do not establish a store purchase, restored entitlement, or the other purchase/restore outcomes.
 
+## Google Play sandbox evidence
+
+On 2026-09-15, the current Lab and native pins were packaged for the existing Play test package `ai.nuxie.example`, version code 12. The APK SHA-256 was `4c0f2205af50a4772bdb143fe06de96d806dfe547e710e1bd761f064e31ad51f`. Installation on the API 36 Play emulator preserved existing app data and used the same signing certificate as the previous test app.
+
+The local backend imported the active `nuxie_qualification` subscription with base plan `monthly`, published its test commerce release and a native purchase/restore Experience, and granted the boolean Feature `unreal_play_access`. The Play sheet displayed **Test card, always approves** and explicitly stated that no charge would occur.
+
+| Check | Observed result (UTC) |
+| --- | --- |
+| Real Play purchase | Play response code 0; Unreal received `purchase_completed` and `unreal_play_purchased` at 17:27:52.020 |
+| Backend reconciliation | Initial local worker configuration returned 503; after its existing encryption key was supplied, the SDK's retained evidence retried automatically and `/purchase` returned 200 |
+| Acknowledgement and access | Evidence was synced and Play-acknowledged; Unreal returned to Ready at 17:29:54.778 and emitted `purchase_synced` at 17:29:54.826; a fresh backend profile contained `unreal_play_access` |
+| Real Play restore | The same customer and subscription produced `restore_completed` and `unreal_play_restored` at 17:34:35.685, completing the Journey and returning to the Lab |
+
+These observations come from the Unreal application, not the earlier native example's retained purchase history. They qualify the managed Play purchase/restore path. RTDN delivery, live price text in the authored screen, the external-controller outcome matrix, and App Store sandbox qualification remain outstanding.
+
 ## Earlier evidence: useful, not final-candidate qualification
 
 Earlier Lab commit `6b29e26` passed local-backend lifecycle and metered consumption on both platforms: configure/identify, Ready, two entity queries, accepted debit, exact same-ID replay, one saved action, unchanged comparison entity, denied over-balance consumption and replay, locale override/reset, anonymous rotation, reidentification, shutdown/reconfigure, and identity across map travel. Both lifecycle reports ended on `LabSecond`.
@@ -88,7 +103,7 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 
 - Final iOS Lab manual/lifecycle/Experience/App Action/dismissal checks after the current changes.
 - iOS: preservation of a game-owned pause and map travel while presenting. Complete the external billing outcome matrix on both platforms: success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, and selected offer fidelity; iOS expiry/teardown and Android purchase expiry/teardown remain unqualified. Android restore expiry and shutdown evidence is recorded above.
-- Real App Store and Google Play sandbox purchase and restore against the backend. Existing apps are Apple Nuxie Staging (`ai.nuxie.ios.staging`) and Play Nuxie Staging (`ai.nuxie.example`); Play product `nuxie_qualification` / base plan `monthly` is active. Locating these settings, a synthetic Purchased completion, and the unavailable-billing failure check are not store purchase evidence.
+- Real App Store sandbox purchase and restore against the backend using Apple Nuxie Staging (`ai.nuxie.ios.staging`). Complete Play RTDN delivery and live price rendering; managed Play purchase/restore evidence is recorded above. Synthetic external-controller completions do not establish real store outcomes.
 - Configured backend success in the fresh prepared Blueprint-only iOS consumer using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
 
