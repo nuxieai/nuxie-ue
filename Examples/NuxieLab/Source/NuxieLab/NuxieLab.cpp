@@ -187,12 +187,24 @@ void UNuxieLabWidget::AppAction(const FNuxieAppAction& Value) {
   // native screen remains open, without relying on another native message.
   FString Json; TSharedPtr<FJsonObject> Settings; bool bValidateOverlayDispatch = false;
   if (FFileHelper::LoadFileToString(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json"))) &&
-      FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) && Settings &&
-      Settings->TryGetBoolField(TEXT("validateOverlayDispatch"), bValidateOverlayDispatch) && bValidateOverlayDispatch) {
+      FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings) && Settings) {
+    Settings->TryGetBoolField(TEXT("validateOverlayDispatch"), bValidateOverlayDispatch);
+  }
+  if (bValidateOverlayDispatch) {
     Client->CheckFeature(TEXT(""), FNuxieFeatureQuery(), FNuxieFeatureCompletion::CreateWeakLambda(this, [this](const TNuxieResult<FNuxieFeatureAccess>& Result) {
       const bool Passed = !Result.IsSuccess() && Result.GetError().Code == ENuxieErrorCode::InvalidArgument;
       Log(Passed ? TEXT("Overlay local rejection passed.") : TEXT("Overlay local rejection FAILED."));
     }));
+  }
+  bool bTravel = false;
+  if (Settings && Settings->TryGetBoolField(TEXT("travelOnAppAction"), bTravel) && bTravel && Value.Name == TEXT("unreal_qa_action")) {
+    if (!GetGameInstance()->GetSubsystem<UNuxieLabPresentation>()->IsPresenting()) { Log(TEXT("Presentation travel FAILED: no active Experience.")); return; }
+    Settings->SetBoolField(TEXT("travelOnAppAction"), false);
+    Settings->SetBoolField(TEXT("resumePresentationTravel"), true);
+    FJsonSerializer::Serialize(Settings.ToSharedRef(), TJsonWriterFactory<>::Create(&Json));
+    if (!FFileHelper::SaveStringToFile(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json")))) { Log(TEXT("Cannot persist presentation travel continuation.")); return; }
+    Log(TEXT("Travel requested while Experience is open."));
+    UGameplayStatics::OpenLevel(this, FName(TEXT("LabSecond")));
   }
 #endif
 }
@@ -376,6 +388,20 @@ void UNuxieLabWidget::NativeConstruct() {
   FString Key, CustomerId, FeatureId, EntityId, OtherEntityId;
   if (!Settings->TryGetStringField(TEXT("publicKey"), Key) || !Settings->TryGetStringField(TEXT("customerId"), CustomerId) || !Settings->TryGetStringField(TEXT("featureId"), FeatureId) || !Settings->TryGetStringField(TEXT("entityId"), EntityId) || !Settings->TryGetStringField(TEXT("comparisonEntityId"), OtherEntityId)) { Log(TEXT("Development runner requires publicKey, customerId, featureId, entityId, comparisonEntityId.")); return; }
   PublicKey->SetText(FText::FromString(Key)); Customer->SetText(FText::FromString(CustomerId)); Feature->SetText(FText::FromString(FeatureId)); Entity->SetText(FText::FromString(EntityId)); ComparisonEntity->SetText(FText::FromString(OtherEntityId));
+  bool bResumePresentation = false; Settings->TryGetBoolField(TEXT("resumePresentationTravel"), bResumePresentation);
+  if (bResumePresentation) {
+    Settings->SetBoolField(TEXT("resumePresentationTravel"), false);
+    FJsonSerializer::Serialize(Settings.ToSharedRef(), TJsonWriterFactory<>::Create(&Json));
+    if (!FFileHelper::SaveStringToFile(Json, *Path)) { Log(TEXT("Cannot clear presentation travel continuation.")); return; }
+    // A public async call observes the destination after PostLoadMap applied pause.
+    Client->GetIdentity(FNuxieIdentityCompletion::CreateWeakLambda(this, [this, CustomerId](const TNuxieResult<FNuxieIdentity>& Result) {
+      const bool bPassed = Result.IsSuccess() && Result.GetValue().CustomerId == CustomerId &&
+        GetWorld()->GetMapName().Contains(TEXT("Second")) && Client->GetStatus().Kind == ENuxieStatusKind::Ready &&
+        GetGameInstance()->GetSubsystem<UNuxieLabPresentation>()->IsPresenting() && UGameplayStatics::IsGamePaused(this);
+      Log(bPassed ? TEXT("Presentation travel passed.") : TEXT("Presentation travel FAILED."));
+    }));
+    return;
+  }
   bool bResumeLifecycle = false; Settings->TryGetBoolField(TEXT("resumeLifecycle"), bResumeLifecycle);
   if (bResumeLifecycle) {
     Settings->SetBoolField(TEXT("resumeLifecycle"), false); Settings->SetBoolField(TEXT("configureOnly"), true);
@@ -384,6 +410,12 @@ void UNuxieLabWidget::NativeConstruct() {
     RunLifecycle(14); return;
   }
   bool bLifecycle = false; Settings->TryGetBoolField(TEXT("lifecycle"), bLifecycle);
+  bool bGameOwnedPause = false; Settings->TryGetBoolField(TEXT("gameOwnedPause"), bGameOwnedPause);
+  if (bGameOwnedPause) {
+    const bool bPaused = UGameplayStatics::SetGamePaused(this, true);
+    Log(bPaused ? TEXT("Game-owned pause established before configuration.") : TEXT("Game-owned pause FAILED."));
+    if (!bPaused) return;
+  }
   FNuxieOptions Options; Options.IOSPublicKey = Options.AndroidPublicKey = Key; Options.Environment = ENuxieEnvironment::Development; Options.LogLevel = ENuxieLogLevel::Debug;
   bool bConfigureOnly = false; Settings->TryGetBoolField(TEXT("configureOnly"), bConfigureOnly);
   FString TriggerEvent; if (Settings->TryGetStringField(TEXT("triggerEvent"), TriggerEvent)) Event->SetText(FText::FromString(TriggerEvent));
