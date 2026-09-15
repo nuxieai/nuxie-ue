@@ -88,6 +88,8 @@ private:
   UEditableTextBox* Input(const FString& Hint, const FString& Value);
   void Consume();
   void Validate();
+  void RunLifecycle(int32 Step);
+  void LifecycleFinished(bool bPassed, const FString& Message);
   FNuxieCompletion Completion(const FString& Label);
   UFUNCTION() void FeaturesChanged(const FNuxieFeatureSnapshot& Snapshot);
   UFUNCTION() void Activity(const FNuxieActivity& Value);

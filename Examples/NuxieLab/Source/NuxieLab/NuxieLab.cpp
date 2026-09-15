@@ -105,6 +105,18 @@ UEditableTextBox* UNuxieLabWidget::Input(const FString& Hint, const FString& Val
 void UNuxieLabWidget::Log(const FString& Text) {
   UE_LOG(LogTemp, Display, TEXT("NuxieLab: %s"), *Text);
   Output->SetText(FText::FromString(Text + TEXT("\n\n") + Output->GetText().ToString().Left(6000)));
+#if UE_BUILD_DEVELOPMENT
+  auto Observation = MakeShared<FJsonObject>();
+  Observation->SetStringField(TEXT("message"), Text);
+  Observation->SetStringField(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
+  Observation->SetStringField(TEXT("map"), GetWorld()->GetMapName());
+  Observation->SetBoolField(TEXT("paused"), UGameplayStatics::IsGamePaused(this));
+  Observation->SetBoolField(TEXT("presenting"), GetGameInstance()->GetSubsystem<UNuxieLabPresentation>()->IsPresenting());
+  FString Line; FJsonSerializer::Serialize(Observation, TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Line));
+  const FString Directory = FPaths::ProjectSavedDir() / TEXT("NuxieLab");
+  IFileManager::Get().MakeDirectory(*Directory, true);
+  FFileHelper::SaveStringToFile(Line + TEXT("\n"), *(Directory / TEXT("observations.jsonl")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
+#endif
 }
 FNuxieCompletion UNuxieLabWidget::Completion(const FString& Label) {
   return FNuxieCompletion::CreateWeakLambda(this, [this, Label](const FNuxieResult& Result) { Log(Result.IsSuccess() ? Label + TEXT(": success") : Label + TEXT(": ") + Result.GetError().Message); });
@@ -260,6 +272,79 @@ void UNuxieLabWidget::Validate() {
   }));
 }
 
+void UNuxieLabWidget::LifecycleFinished(bool bPassed, const FString& Message) {
+  bOperationPending = false;
+  auto Report = MakeShared<FJsonObject>();
+  Report->SetBoolField(TEXT("passed"), bPassed); Report->SetStringField(TEXT("message"), Message);
+  Report->SetStringField(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
+  Report->SetStringField(TEXT("map"), GetWorld()->GetMapName());
+  FString Json; FJsonSerializer::Serialize(Report, TJsonWriterFactory<>::Create(&Json));
+  FFileHelper::SaveStringToFile(Json, *(FPaths::ProjectSavedDir() / TEXT("NuxieLab/lifecycle.json")));
+  Log((bPassed ? TEXT("PASS lifecycle: ") : TEXT("FAIL lifecycle: ")) + Message);
+}
+void UNuxieLabWidget::RunLifecycle(int32 Step) {
+#if UE_BUILD_DEVELOPMENT
+  bOperationPending = true;
+  Log(FString::Printf(TEXT("Lifecycle step %d"), Step));
+  auto Next = FNuxieCompletion::CreateWeakLambda(this, [this, Step](const FNuxieResult& Result) {
+    if (!Result.IsSuccess()) { LifecycleFinished(false, Result.GetError().Message); return; }
+    RunLifecycle(Step + 1);
+  });
+  switch (Step) {
+    case 0: Client->Dismiss(Next); break;
+    case 1: Client->SetLocale(TEXT("fr"), Next); break;
+    case 2: Client->SetLocale(TEXT(""), Next); break;
+    case 3: Client->Reset(Next); break;
+    case 4: case 6: case 12: case 14:
+      Client->GetIdentity(FNuxieIdentityCompletion::CreateWeakLambda(this, [this, Step](const TNuxieResult<FNuxieIdentity>& Result) {
+        if (!Result.IsSuccess()) { LifecycleFinished(false, Result.GetError().Message); return; }
+        const auto& Identity = Result.GetValue();
+        const bool Valid = Step == 4 ? !Identity.bIdentified && !Identity.AnonymousId.IsEmpty() && Identity.CustomerId != Customer->GetText().ToString() : Identity.bIdentified && Identity.CustomerId == Customer->GetText().ToString();
+        if (!Valid) { LifecycleFinished(false, TEXT("Identity invariant failed.")); return; }
+        if (Step == 14) { LifecycleFinished(true, TEXT("Locale, anonymous reset, reidentify, denied usage/replay, shutdown/reconfigure, and identity across map travel.")); return; }
+        RunLifecycle(Step + 1);
+      })); break;
+    case 5: case 11: Client->Identify(Customer->GetText().ToString(), FNuxieIdentityOptions(), Next); break;
+    case 7: {
+      FNuxieFeatureQuery Query; Query.Policy = ENuxieFeaturePolicy::Remote; Query.EntityId = Entity->GetText().ToString();
+      Client->CheckFeature(Feature->GetText().ToString(), Query, FNuxieFeatureCompletion::CreateWeakLambda(this, [this, Query](const TNuxieResult<FNuxieFeatureAccess>& Before) {
+        if (!Before.IsSuccess() || !Before.GetValue().bHasBalance || Before.GetValue().bUnlimited) { LifecycleFinished(false, TEXT("Denied-use check requires a finite entity balance.")); return; }
+        const double Balance = Before.GetValue().Balance;
+        FNuxieFeatureCommand Command; Command.EntityId = Query.EntityId; Command.Quantity = Balance + 1; Command.OperationId = FGuid::NewGuid().ToString();
+        Client->ConsumeFeature(Feature->GetText().ToString(), Command, FNuxieConsumeCompletion::CreateWeakLambda(this, [this, Query, Command, Balance](const TNuxieResult<FNuxieUsageReceipt>& Denied) {
+          if (!Denied.IsSuccess() || Denied.GetValue().bAccepted || Denied.GetValue().bIdempotentReplay) { LifecycleFinished(false, TEXT("Over-balance consumption was not denied.")); return; }
+          Client->ConsumeFeature(Feature->GetText().ToString(), Command, FNuxieConsumeCompletion::CreateWeakLambda(this, [this, Query, Balance](const TNuxieResult<FNuxieUsageReceipt>& Replay) {
+            if (!Replay.IsSuccess() || Replay.GetValue().bAccepted || !Replay.GetValue().bIdempotentReplay) { LifecycleFinished(false, TEXT("Denied receipt did not replay.")); return; }
+            Client->CheckFeature(Feature->GetText().ToString(), Query, FNuxieFeatureCompletion::CreateWeakLambda(this, [this, Balance](const TNuxieResult<FNuxieFeatureAccess>& After) {
+              if (!After.IsSuccess() || !After.GetValue().bHasBalance || After.GetValue().Balance != Balance) { LifecycleFinished(false, TEXT("Denied consumption changed the balance.")); return; }
+              RunLifecycle(8);
+            }));
+          }));
+        }));
+      })); break;
+    }
+    case 8: Client->Shutdown(Next); break;
+    case 9:
+      if (Client->GetStatus().Kind != ENuxieStatusKind::Unconfigured) { LifecycleFinished(false, TEXT("Shutdown did not clear configured status.")); return; }
+      RunLifecycle(10); break;
+    case 10: {
+      FNuxieOptions Options; Options.IOSPublicKey = Options.AndroidPublicKey = PublicKey->GetText().ToString(); Options.Environment = ENuxieEnvironment::Development;
+      Client->Configure(Options, Next); break;
+    }
+    case 13: {
+      const FString Path = FPaths::ProjectSavedDir() / TEXT("NuxieLab/auto.json");
+      FString Json; TSharedPtr<FJsonObject> Settings;
+      if (!FFileHelper::LoadFileToString(Json, *Path) || !FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Settings)) { LifecycleFinished(false, TEXT("Cannot save map-travel continuation.")); return; }
+      Settings->SetBoolField(TEXT("resumeLifecycle"), true); Settings->SetBoolField(TEXT("lifecycle"), false);
+      FJsonSerializer::Serialize(Settings.ToSharedRef(), TJsonWriterFactory<>::Create(&Json));
+      if (!FFileHelper::SaveStringToFile(Json, *Path)) { LifecycleFinished(false, TEXT("Cannot persist continuation.")); return; }
+      UGameplayStatics::OpenLevel(this, FName(TEXT("LabSecond"))); break;
+    }
+    default: LifecycleFinished(false, TEXT("Unknown lifecycle step."));
+  }
+#endif
+}
+
 void UNuxieLabWidget::NativeConstruct() {
   Super::NativeConstruct();
 #if UE_BUILD_DEVELOPMENT
@@ -272,16 +357,26 @@ void UNuxieLabWidget::NativeConstruct() {
   FString Key, CustomerId, FeatureId, EntityId, OtherEntityId;
   if (!Settings->TryGetStringField(TEXT("publicKey"), Key) || !Settings->TryGetStringField(TEXT("customerId"), CustomerId) || !Settings->TryGetStringField(TEXT("featureId"), FeatureId) || !Settings->TryGetStringField(TEXT("entityId"), EntityId) || !Settings->TryGetStringField(TEXT("comparisonEntityId"), OtherEntityId)) { Log(TEXT("Development runner requires publicKey, customerId, featureId, entityId, comparisonEntityId.")); return; }
   PublicKey->SetText(FText::FromString(Key)); Customer->SetText(FText::FromString(CustomerId)); Feature->SetText(FText::FromString(FeatureId)); Entity->SetText(FText::FromString(EntityId)); ComparisonEntity->SetText(FText::FromString(OtherEntityId));
+  bool bResumeLifecycle = false; Settings->TryGetBoolField(TEXT("resumeLifecycle"), bResumeLifecycle);
+  if (bResumeLifecycle) {
+    Settings->SetBoolField(TEXT("resumeLifecycle"), false); Settings->SetBoolField(TEXT("configureOnly"), true);
+    FJsonSerializer::Serialize(Settings.ToSharedRef(), TJsonWriterFactory<>::Create(&Json)); FFileHelper::SaveStringToFile(Json, *Path);
+    if (!GetWorld()->GetMapName().Contains(TEXT("Second")) || Client->GetStatus().Kind != ENuxieStatusKind::Ready) { LifecycleFinished(false, TEXT("Configured client did not survive map travel.")); return; }
+    RunLifecycle(14); return;
+  }
+  bool bLifecycle = false; Settings->TryGetBoolField(TEXT("lifecycle"), bLifecycle);
   FNuxieOptions Options; Options.IOSPublicKey = Options.AndroidPublicKey = Key; Options.Environment = ENuxieEnvironment::Development; Options.LogLevel = ENuxieLogLevel::Debug;
+  bool bConfigureOnly = false; Settings->TryGetBoolField(TEXT("configureOnly"), bConfigureOnly);
+  FString TriggerEvent; if (Settings->TryGetStringField(TEXT("triggerEvent"), TriggerEvent)) Event->SetText(FText::FromString(TriggerEvent));
   bOperationPending = true;
   Log(TEXT("Development runner settings loaded; configuring the native client."));
-  Client->Configure(Options, FNuxieCompletion::CreateWeakLambda(this, [this, CustomerId](const FNuxieResult& Setup) {
+  Client->Configure(Options, FNuxieCompletion::CreateWeakLambda(this, [this, CustomerId, bConfigureOnly, bLifecycle](const FNuxieResult& Setup) {
     if (!Setup.IsSuccess()) { ValidationFinished(false, TEXT("Configure: ") + Setup.GetError().Message); return; }
     Log(TEXT("Automatic configure succeeded."));
-    Client->Identify(CustomerId, FNuxieIdentityOptions(), FNuxieCompletion::CreateWeakLambda(this, [this](const FNuxieResult& Identified) {
+    Client->Identify(CustomerId, FNuxieIdentityOptions(), FNuxieCompletion::CreateWeakLambda(this, [this, bConfigureOnly, bLifecycle](const FNuxieResult& Identified) {
       bOperationPending = false;
       if (!Identified.IsSuccess()) { ValidationFinished(false, TEXT("Identify: ") + Identified.GetError().Message); return; }
-      Log(TEXT("Automatic identify succeeded.")); Validate();
+      Log(TEXT("Automatic identify succeeded.")); if (bLifecycle) RunLifecycle(0); else if (!bConfigureOnly) Validate();
     }));
   }));
 #endif

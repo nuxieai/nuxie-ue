@@ -38,3 +38,14 @@ python3 scripts/check-android-blueprint.py --serial <adb-device-id> --apk Exampl
 ```
 
 Use the unconfigured example. This installs and launches it, rejects native-module startup failures, and requires the real Blueprint async error branch within 60 seconds. It does not clear app data or simulate backend success.
+
+## Additional physical-device and emulator qualification — 2026-09-15 UTC
+
+- Updated Lab `BuildCookRun -platform=IOS -clientconfig=Development -build -cook -stage -pak -package -map=Lab+LabSecond -AdditionalCookerOptions=-nowrite` passed, as did Android with `-platform=Android -cookflavor=ASTC`. Both installed successfully.
+- The public-API lifecycle runner passed on the physical iPhone 17 Pro Max at 06:48:05 UTC and Android API 36 emulator at 06:50:22 UTC. Both reports ended on `LabSecond`: locale override/reset, anonymous reset, reidentification, denied over-balance consumption, exact replay of the denial, unchanged balance, shutdown/reconfigure, and identity retained across map travel.
+- The iOS authored Close control dismissed the native Experience. Actual activity observations changed from `paused=true, presenting=true` on presentation to both false on dismissal. A second real tap delivered `unreal_qa_action` with three typed payload values, then dismissed and released pause. The original interactive fixture lacked its top-level projected control metadata; repairing and republishing the fixture made those controls functional.
+- The previously packaged Blueprint-only iOS consumer installed and launched on the physical phone. This checks native module startup, not backend success; its earlier artifact still used Unreal's default bundle identifier. A final consumer rebuild must use the committed explicit identifier.
+- A separately authored Android-platform fixture published successfully and rendered the same native Experience. Automated interaction through the local mirror is not yet qualified.
+- Existing store apps were located: Apple Nuxie Staging (`ai.nuxie.ios.staging`) and Play Nuxie Staging (`ai.nuxie.example`). Authenticated Play Console now shows `nuxie_qualification` / `monthly` active; the older setup document's pending-base-plan checkpoint is outdated. This discovery is not an Unreal store purchase pass.
+
+Remaining: Android authored interaction, manual Lab input qualification, preservation of a game-owned pause and travel while an Experience is open, and real purchase/restore sandbox outcomes. Full release qualification is not yet complete. The development observer records real callbacks and state; it does not inject native callbacks or treat synthetic purchase outcomes as store evidence.
