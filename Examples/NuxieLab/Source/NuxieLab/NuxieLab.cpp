@@ -16,6 +16,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "HAL/PlatformFileManager.h"
 #include "Serialization/JsonSerializer.h"
 #if PLATFORM_ANDROID
 extern FString GInternalFilePath;
@@ -103,6 +104,30 @@ const FLinearColor Hover(0.14f, 0.14f, 0.17f, 1);
 const FLinearColor Primary(0.36f, 0.20f, 0.78f, 1);
 const FLinearColor Foreground(0.94f, 0.94f, 0.97f, 1);
 const TCHAR* SlotName = TEXT("NuxieLabPendingOperation");
+USaveGame* LoadLabSave() {
+#if PLATFORM_ANDROID
+  TArray<uint8> Bytes;
+  if (!FFileHelper::LoadFileToArray(Bytes, *(LabDirectory() / TEXT("pending-operation.sav")))) return nullptr;
+  return UGameplayStatics::LoadGameFromMemory(Bytes);
+#else
+  return UGameplayStatics::LoadGameFromSlot(SlotName, 0);
+#endif
+}
+bool SaveLabSave(USaveGame* Save) {
+#if PLATFORM_ANDROID
+  TArray<uint8> Bytes;
+  if (!UGameplayStatics::SaveGameToMemory(Save, Bytes)) return false;
+  const FString Directory = LabDirectory();
+  if (!IFileManager::Get().MakeDirectory(*Directory, true)) return false;
+  const FString Path = Directory / TEXT("pending-operation.sav");
+  const FString Temporary = Path + TEXT(".tmp");
+  if (!FFileHelper::SaveArrayToFile(Bytes, *Temporary)) return false;
+  // Android's platform move uses rename; do not delete the last good save first.
+  return FPlatformFileManager::Get().GetPlatformFile().MoveFile(*Path, *Temporary);
+#else
+  return UGameplayStatics::SaveGameToSlot(Save, SlotName, 0);
+#endif
+}
 }
 void UNuxieLabPresentation::Initialize(FSubsystemCollectionBase& Collection) {
   Super::Initialize(Collection); Collection.InitializeDependency<UNuxieSubsystem>();
@@ -223,7 +248,7 @@ TSharedRef<SWidget> UNuxieLabWidget::RebuildWidget() {
   Customer = Input(TEXT("Development customer ID"), TEXT("unreal-lab"));
   Feature = Input(TEXT("Metered feature ID"), TEXT("energy")); Entity = Input(TEXT("Entity ID (optional)"), TEXT("character-a")); ComparisonEntity = Input(TEXT("Unchanged comparison entity"), TEXT("character-b")); Event = Input(TEXT("Published trigger event"), TEXT("shop_opened"));
   Output = WidgetTree->ConstructWidget<UTextBlock>(); Output->SetAutoWrapText(true); Output->SetColorAndOpacity(Foreground);
-  Save = Cast<UNuxieLabSave>(UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+  Save = Cast<UNuxieLabSave>(LoadLabSave());
   if (!Save) Save = NewObject<UNuxieLabSave>();
   Button(TEXT("Configure development client"), [this]() { auto Config = UNuxieSettings::GetProjectOptions(); Config.Environment = ENuxieEnvironment::Development; Config.LogLevel = ENuxieLogLevel::Debug; Config.IOSPublicKey = Config.AndroidPublicKey = PublicKey->GetText().ToString(); Client->Configure(Config, Completion(TEXT("Configure"))); });
   Button(TEXT("Configure external billing harness"), [this]() {
@@ -242,7 +267,7 @@ TSharedRef<SWidget> UNuxieLabWidget::RebuildWidget() {
   Button(TEXT("Identify customer"), [this]() { Client->Identify(Customer->GetText().ToString(), FNuxieIdentityOptions(), Completion(TEXT("Identify"))); });
   Button(TEXT("Query entity remotely"), [this]() { FNuxieFeatureQuery Query; Query.EntityId = Entity->GetText().ToString(); Query.Policy = ENuxieFeaturePolicy::Remote; Client->CheckFeature(Feature->GetText().ToString(), Query, FNuxieFeatureCompletion::CreateWeakLambda(this, [this](const TNuxieResult<FNuxieFeatureAccess>& Result) { if (!Result.IsSuccess()) { Log(Result.GetError().Message); return; } const auto& Access = Result.GetValue(); Log(FString::Printf(TEXT("Allowed: %s · unlimited: %s · balance: %s"), Access.bAllowed ? TEXT("yes") : TEXT("no"), Access.bUnlimited ? TEXT("yes") : TEXT("no"), Access.bHasBalance ? *FString::SanitizeFloat(Access.Balance) : TEXT("absent"))); })); });
   Button(TEXT("Spend one / retry saved operation"), [this]() { Consume(); });
-  Button(TEXT("Start a new operation"), [this]() { if (!Save->Command.OperationId.IsEmpty() && !Save->Resolved.Contains(Save->Command.OperationId)) { Log(TEXT("Resolve the saved operation before starting another.")); return; } Save->Command.OperationId.Reset(); if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) Log(TEXT("Could not save.")); else Log(TEXT("Next spend will save a new operation.")); });
+  Button(TEXT("Start a new operation"), [this]() { if (!Save->Command.OperationId.IsEmpty() && !Save->Resolved.Contains(Save->Command.OperationId)) { Log(TEXT("Resolve the saved operation before starting another.")); return; } Save->Command.OperationId.Reset(); if (!SaveLabSave(Save)) Log(TEXT("Could not save.")); else Log(TEXT("Next spend will save a new operation.")); });
   Button(TEXT("Validate debit and replay"), [this]() { Validate(); });
   Button(TEXT("Trigger published Experience"), [this]() { Client->Trigger(Event->GetText().ToString(), FNuxieProperties(), Completion(TEXT("Trigger accepted"))); });
   Button(TEXT("Dismiss Experience"), [this]() { Client->Dismiss(Completion(TEXT("Dismiss"))); });
@@ -296,7 +321,7 @@ void UNuxieLabWidget::Consume() {
     Save->Customer = Client->GetFeatureSnapshot().CustomerId;
     if (Save->Customer.IsEmpty()) { Log(TEXT("Wait for customer identity before saving an action.")); return; }
     Save->Feature = Feature->GetText().ToString(); Save->Command.EntityId = Entity->GetText().ToString(); Save->Command.Quantity = 1; Save->Command.OperationId = FGuid::NewGuid().ToString();
-    if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) { Save->Command.OperationId.Reset(); Log(TEXT("Save failed; no consumption was sent.")); return; }
+    if (!SaveLabSave(Save)) { Save->Command.OperationId.Reset(); Log(TEXT("Save failed; no consumption was sent.")); return; }
   }
   if (Save->Customer != Client->GetFeatureSnapshot().CustomerId) { Log(TEXT("The saved operation belongs to another customer. Reidentify that customer before retrying.")); return; }
   bOperationPending = true;
@@ -308,10 +333,10 @@ void UNuxieLabWidget::Consume() {
     if (Receipt.bAccepted && !Save->Applied.Contains(Receipt.OperationId)) {
       Save->Applied.Add(Receipt.OperationId);
       Save->Resolved.AddUnique(Receipt.OperationId);
-      if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) { Save->Applied.Remove(Receipt.OperationId); Save->Resolved.Remove(Receipt.OperationId); Log(TEXT("Could not persist gameplay application; retry the same operation.")); return; }
+      if (!SaveLabSave(Save)) { Save->Applied.Remove(Receipt.OperationId); Save->Resolved.Remove(Receipt.OperationId); Log(TEXT("Could not persist gameplay application; retry the same operation.")); return; }
       // The saved Applied set is this Lab's gameplay effect: one earned action per accepted operation.
     }
-    if (!Receipt.bAccepted) { Save->Resolved.AddUnique(Receipt.OperationId); if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) { Save->Resolved.Remove(Receipt.OperationId); Log(TEXT("Could not persist the denied outcome; retry the saved operation.")); return; } }
+    if (!Receipt.bAccepted) { Save->Resolved.AddUnique(Receipt.OperationId); if (!SaveLabSave(Save)) { Save->Resolved.Remove(Receipt.OperationId); Log(TEXT("Could not persist the denied outcome; retry the saved operation.")); return; } }
     Log(FString::Printf(TEXT("%s · replay %s · applied actions %d · operation %s"), *Receipt.Code, Receipt.bIdempotentReplay ? TEXT("yes") : TEXT("no"), Save->Applied.Num(), *Receipt.OperationId));
   }));
 }
@@ -331,7 +356,7 @@ void UNuxieLabWidget::ValidationFinished(bool bPassed, const FString& Message) {
   const FString Directory = LabDirectory();
   IFileManager::Get().MakeDirectory(*Directory, true);
   const bool bSaved = FFileHelper::SaveStringToFile(Json, *(Directory / TEXT("validation.json")));
-  Log((bPassed ? TEXT("PASS: ") : TEXT("FAIL: ")) + Message + (bSaved ? TEXT(" Report: Saved/NuxieLab/validation.json") : TEXT(" Could not save the validation report.")));
+  Log((bPassed ? TEXT("PASS: ") : TEXT("FAIL: ")) + Message + (bSaved ? (FString(TEXT(" Report: ")) + (Directory / TEXT("validation.json"))) : TEXT(" Could not save the validation report.")));
 }
 void UNuxieLabWidget::Validate() {
   if (!Save->Command.OperationId.IsEmpty() && !Save->Resolved.Contains(Save->Command.OperationId)) { Log(TEXT("Resolve the saved operation before validation.")); return; }
@@ -352,7 +377,7 @@ void UNuxieLabWidget::Validate() {
       if (!OtherInitial.bHasBalance || OtherInitial.bUnlimited) { ValidationFinished(false, TEXT("The comparison entity needs a finite balance.")); return; }
       if (Client->GetFeatureSnapshot().CustomerId != CustomerId) { ValidationFinished(false, TEXT("Identity changed before the debit.")); return; }
       Save->Customer = CustomerId; Save->Feature = FeatureId; Save->Command = FNuxieFeatureCommand(); Save->Command.EntityId = Query.EntityId; Save->Command.OperationId = FGuid::NewGuid().ToString();
-      if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) { Save->Command.OperationId.Reset(); ValidationFinished(false, TEXT("Cannot save the pending operation; no debit was sent.")); return; }
+      if (!SaveLabSave(Save)) { Save->Command.OperationId.Reset(); ValidationFinished(false, TEXT("Cannot save the pending operation; no debit was sent.")); return; }
       const auto Command = Save->Command;
       Client->ConsumeFeature(FeatureId, Command, FNuxieConsumeCompletion::CreateWeakLambda(this, [this, CustomerId, FeatureId, Query, OtherQuery, Initial, OtherInitial, Command](const TNuxieResult<FNuxieUsageReceipt>& First) {
         if (!First.IsSuccess()) { ValidationFinished(false, TEXT("Debit unresolved; retry the saved ID: ") + First.GetError().Message); return; }
@@ -360,11 +385,11 @@ void UNuxieLabWidget::Validate() {
         if (Receipt.CustomerId != CustomerId || Receipt.OperationId != Command.OperationId) { ValidationFinished(false, TEXT("Receipt ownership differs.")); return; }
         if (!Receipt.bAccepted || Receipt.bIdempotentReplay) {
           // A denied outcome is resolved, but never a gameplay reward.
-          if (!Receipt.bAccepted) { Save->Resolved.AddUnique(Command.OperationId); if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) Save->Resolved.Remove(Command.OperationId); }
+          if (!Receipt.bAccepted) { Save->Resolved.AddUnique(Command.OperationId); if (!SaveLabSave(Save)) Save->Resolved.Remove(Command.OperationId); }
           ValidationFinished(false, TEXT("Expected a newly accepted debit; received ") + Receipt.Code); return;
         }
         Save->Applied.AddUnique(Command.OperationId); Save->Resolved.AddUnique(Command.OperationId);
-        if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0)) { Save->Applied.Remove(Command.OperationId); Save->Resolved.Remove(Command.OperationId); ValidationFinished(false, TEXT("Could not save gameplay application; retry the saved ID.")); return; }
+        if (!SaveLabSave(Save)) { Save->Applied.Remove(Command.OperationId); Save->Resolved.Remove(Command.OperationId); ValidationFinished(false, TEXT("Could not save gameplay application; retry the saved ID.")); return; }
         Client->ConsumeFeature(FeatureId, Command, FNuxieConsumeCompletion::CreateWeakLambda(this, [this, FeatureId, Query, OtherQuery, Initial, OtherInitial, Command, Receipt](const TNuxieResult<FNuxieUsageReceipt>& Replay) {
           if (!Replay.IsSuccess()) { ValidationFinished(false, TEXT("Replay unresolved: ") + Replay.GetError().Message); return; }
           const auto Second = Replay.GetValue();

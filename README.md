@@ -239,7 +239,7 @@ Ordinary requests have a 90-second active dispatch timeout. Gameplay pause does 
 
 The Lab's **Validate debit and replay** action uses a finite metered grant to check that an original operation plus a same-ID replay produces exactly one debit and one saved action. Use a disposable development customer, not production balances. Keep the feature and entity exclusive to that validation run.
 
-Settings entered into the Lab are local to that run; client public keys can also be provided through Unreal project settings. Saved pending operations live in the platform's SaveGame storage. Do not retry a saved operation under a different customer.
+Settings entered into the Lab are local to that run; client public keys can also be provided through Unreal project settings. Saved pending operations live in private app storage on Android and platform SaveGame storage on iOS. Do not retry a saved operation under a different customer.
 
 For local endpoints, use the SDK ingest service from your backend checkout's `pnpm run dev:print` (the service serving `/profile`, `/batch`, and `/entitled`). The iOS debug bridge reads `NUXIE_UNREAL_API_ENDPOINT`; the Android debuggable app reads the same-named launch intent extra. Release builds use the configured Nuxie environment. Never commit local credentials or machine-specific endpoints.
 
