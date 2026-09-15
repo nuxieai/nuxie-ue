@@ -49,9 +49,20 @@ The rebuilt Android Lab was manually exercised on 2026-09-15 UTC. Its APK SHA-25
 | Journey completion | At 15:48:10.073, both `paused` and `presenting` became false |
 | SDK shutdown | Completed at 15:48:17.332; a subsequent query returned the unconfigured error |
 
-The Lab releases only its own pause, using the matching Experience/version/Journey key. Completion is handled as well as explicit dismissal because a terminal Journey can retire its screen without a user-dismissal activity. Manual map travel after this correction retained `paused=false, presenting=false` in the preceding dedicated pause build. Preservation of a pre-existing game-owned pause and travel while an Experience remains open still require qualification.
+The Lab releases only its own pause, using the matching Experience/version/Journey key. Completion is handled as well as explicit dismissal because a terminal Journey can retire its screen without a user-dismissal activity. Android device qualification on 2026-09-15 preserved a game-owned pause after both Journey completion and dismissal at 16:10:20.108 UTC (`paused=true, presenting=false`). A separate run travelled to `LabSecond` while presenting: identity, Ready status, presentation and pause passed at 16:10:57.273; a further App Action delivered on the destination map; dismissal at 16:11:14.005 cleared the Lab-owned pause (`paused=false, presenting=false`). The corresponding iOS checks remain outstanding.
 
 For the active-overlay local-rejection check, set `validateOverlayDispatch: true` in the development Lab's `Saved/NuxieLab/auto.json`. This intentionally calls `CheckFeature` with an empty Feature ID from an App Action and records the expected deferred failure. It is excluded from Shipping builds.
+
+Two additional development-only options exercise the game's presentation policy against a real published Experience:
+
+- `gameOwnedPause: true` pauses gameplay before configuration. After dismissing the Experience, the observations must retain `paused=true` while `presenting=false`.
+- `travelOnAppAction: true` makes the authored `unreal_qa_action` travel once to `LabSecond` while the Experience is open. The destination checks identity, Ready status, presentation, and pause through the public API without reconfiguring the client. After dismissal, its Lab-owned pause must clear. Use a separate run without `gameOwnedPause` for this check.
+
+## Prepared consumer evidence
+
+Commit `f753f7d` passed the complete local readiness gate. Its Release iOS archives and prepared plugin built for IOS, Android and Mac; all 285 manifest file hashes verified. A fresh content-only consumer copied that plugin and packaged successfully for Android and iOS. Android executed the real Blueprint unconfigured-error branch on the emulator. iOS passed strict recursive codesign verification, installed on the physical phone, and executed that branch at 16:03:42.350 UTC. These runs prove prepared-module startup and async delivery, not configured backend success. Subsequent Lab-only qualification controls do not alter the plugin runtime; a new committed-candidate readiness receipt is still required.
+
+The Android Lab APK identified above also passed v2 signature verification, ZIP 16 KiB alignment and ELF load-segment alignment/congruence checks across all nine shared libraries.
 
 ## Earlier evidence: useful, not final-candidate qualification
 
@@ -66,9 +77,9 @@ The installed Epic distribution lacks iOS-simulator third-party link inputs, beg
 ## Remaining qualification
 
 - Final iOS Lab manual/lifecycle/Experience/App Action/dismissal checks after the current changes.
-- Both platforms: preservation of a game-owned pause, map travel while presenting, and external billing success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, timeout, teardown, and selected offer fidelity.
+- iOS: preservation of a game-owned pause and map travel while presenting. Both platforms: external billing success/cancel/pending/failure/restore/no-purchases, duplicate/wrong completion, timeout, teardown, and selected offer fidelity.
 - Real App Store and Google Play sandbox purchase and restore against the backend. Existing apps are Apple Nuxie Staging (`ai.nuxie.ios.staging`) and Play Nuxie Staging (`ai.nuxie.example`); Play product `nuxie_qualification` / base plan `monthly` is active. Locating these settings, a synthetic Purchased completion, and the unavailable-billing failure check are not store purchase evidence.
-- Final Release native archives, prepared plugin build, and fresh Blueprint-only iOS/Android consumers using the committed explicit identifiers.
+- Configured backend success in the fresh prepared Blueprint-only iOS/Android consumers using the committed explicit identifiers; startup and packaging evidence is recorded above.
 - Final package signing/alignment checks, review, committed-candidate readiness receipt, and accurate PR evidence.
 
 Use a disposable local app/customer with finite grants for backend checks. The Lab writes `Saved/NuxieLab/validation.json`, checks two distinct entities, persists pending operation IDs and gameplay application, and assumes no concurrent consumers. Distinguish request acceptance, presentation, and verified store outcomes.
