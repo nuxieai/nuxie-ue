@@ -131,4 +131,36 @@ public:
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNuxieSessionLifecycle, "Nuxie.Contract.SessionLifecycle", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FNuxieSessionLifecycle::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FLifecycleCommand(this)); return true; }
+namespace {
+class FDeferredBudgetCommand : public IAutomationLatentCommand {
+  FAutomationTestBase* Test;
+  TSharedPtr<TMap<uint64, int32>> PerFrame = MakeShared<TMap<uint64, int32>>();
+  TSharedPtr<int32> Delivered = MakeShared<int32>(0);
+  bool Started = false;
+  double Deadline = 0;
+public:
+  explicit FDeferredBudgetCommand(FAutomationTestBase* InTest) : Test(InTest) {}
+  bool Update() override {
+    if (!Started) {
+      Started = true; Deadline = FPlatformTime::Seconds() + 10;
+      for (int32 Index = 0; Index < 600; ++Index) {
+        FNuxieSession::Defer([Frames = PerFrame, Count = Delivered]() {
+          ++Frames->FindOrAdd(GFrameCounter); ++*Count;
+          // Exercise work scheduled during delivery, as an App Action handler does.
+          FNuxieSession::Defer([Frames, Count]() { ++Frames->FindOrAdd(GFrameCounter); ++*Count; });
+        });
+      }
+      Test->TestEqual(TEXT("completion remains deferred"), *Delivered, 0);
+      return false;
+    }
+    if (*Delivered < 1200 && FPlatformTime::Seconds() < Deadline) return false;
+    Test->TestEqual(TEXT("all initial and nested callbacks settle"), *Delivered, 1200);
+    for (const auto& Entry : *PerFrame) Test->TestTrue(TEXT("deferred work yields after 256 callbacks in one frame"), Entry.Value <= 256);
+    Test->TestTrue(TEXT("burst spans multiple engine frames"), PerFrame->Num() >= 5);
+    return true;
+  }
+};
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNuxieDeferredBudget, "Nuxie.Contract.DeferredBudget", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FNuxieDeferredBudget::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FDeferredBudgetCommand(this)); return true; }
 #endif

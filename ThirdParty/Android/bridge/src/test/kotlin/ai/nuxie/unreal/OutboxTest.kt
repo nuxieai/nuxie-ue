@@ -14,6 +14,25 @@ class OutboxTest {
   private fun event(name: String, sequence: Int) =
     """{"session":"game","identityGeneration":"2","name":"$name","payload":{"sequence":$sequence}}"""
 
+  @Test fun aBoundedDrainReportsRemainingWorkUntilEveryQueueIsEmpty() {
+    val box = NuxieOutbox()
+    assertFalse(box.hasMessages())
+    repeat(256) { box.offer(event("activity", it)) }
+    box.offer(event("features", 0))
+    box.offer(event("restore", 0))
+    assertTrue(box.admit("reply"))
+    box.offer("""{"requestId":"reply","result":null}""")
+    repeat(256) { assertNotNull(box.poll()) }
+    assertTrue(box.hasMessages())
+    repeat(3) { assertNotNull(box.poll()) }
+    assertFalse(box.hasMessages())
+    // An arrival after the final drain must request another wake.
+    box.offer(event("purchase", 1))
+    assertTrue(box.hasMessages())
+    assertEquals(event("purchase", 1), box.poll())
+    assertFalse(box.hasMessages())
+  }
+
   @Test fun burstsCannotStarveRepliesOrCheckoutAndStorageIsBounded() {
     val box = NuxieOutbox()
     repeat(10000) { assertTrue(box.offer(event("activity", it))); assertTrue(box.offer(event("features", it))) }

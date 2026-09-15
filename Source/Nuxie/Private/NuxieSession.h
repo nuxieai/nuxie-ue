@@ -16,6 +16,8 @@ public:
   ~FNuxieSession();
   static void Configure(UNuxieSubsystem* Owner, const FNuxieOptions& Options, FNuxieCompletion Completion);
   static void Defer(TFunction<void()> Callback);
+  static bool HasDeferredCallbacks();
+  static bool HasNativeOwner();
   static void ShutdownFor(UNuxieSubsystem* Owner, FNuxieCompletion Completion);
   void Shutdown(FNuxieCompletion Completion);
   void ChangeIdentity(const FString& Method, NuxieWire::FObject Arguments, FNuxieCompletion Completion);
