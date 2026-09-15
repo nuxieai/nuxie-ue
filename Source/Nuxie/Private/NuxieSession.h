@@ -20,6 +20,7 @@ public:
   static bool HasNativeOwner();
   static void ShutdownFor(UNuxieSubsystem* Owner, FNuxieCompletion Completion);
   void Shutdown(FNuxieCompletion Completion);
+  void DetachOwner();
   void ChangeIdentity(const FString& Method, NuxieWire::FObject Arguments, FNuxieCompletion Completion);
   void Call(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply);
   bool CompleteCheckout(const FString& Method, const FString& RequestId, const FString& Result);

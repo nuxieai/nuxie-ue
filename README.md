@@ -53,15 +53,15 @@ Leave anonymous players anonymous until your game has a stable customer ID. Conf
 In a widget:
 
 ```text
-Construct → Observe Features
-  Changed → Snapshot.Kind
+Construct → Observe Nuxie Feature("energy")
+  StateChanged → State.Kind
     Unknown      → show loading or unavailable
     Reconciling  → show access being reconciled
-    Ready        → inspect the feature in Snapshot.All
+    Ready        → inspect State.bHasAccess, then State.Access
 Destruct → Observer.Cancel
 ```
 
-`Observe Features` binds before delivering the current snapshot. If you use the subsystem's delegates directly, bind `OnFeaturesChanged` before calling `GetFeatureSnapshot`.
+`Observe Nuxie Feature` binds before delivering the selected feature’s current state. It watches global access; use `CheckFeature` for entity-scoped queries. Subsystem teardown cancels the observer automatically. If you use the subsystem's delegates directly, bind `OnFeaturesChanged` before calling `GetFeatureSnapshot`.
 
 **Unknown is not denial. Missing is not zero.** `GetFeatureState` returns both readiness and `bHasAccess`; only inspect `Access` when that flag is true. `Access.bHasBalance` distinguishes an absent balance from zero. `bUnlimited` is explicit.
 

@@ -138,6 +138,7 @@ USTRUCT(BlueprintType)
 struct NUXIE_API FNuxieFeatureSnapshot
 {
   GENERATED_BODY()
+  FNuxieFeatureState Select(const FString& FeatureId) const;
   UPROPERTY(BlueprintReadOnly, Category="Nuxie") ENuxieFeatureStateKind Kind = ENuxieFeatureStateKind::Unknown;
   UPROPERTY(BlueprintReadOnly, Category="Nuxie") FString CustomerId;
   UPROPERTY(BlueprintReadOnly, Category="Nuxie") FString IdentityGeneration = TEXT("0");

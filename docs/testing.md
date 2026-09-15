@@ -12,9 +12,10 @@ node ../../scripts/pr-readiness.mjs run
 
 Its SDK gate is `python3 scripts/check.py`. Set `UNREAL_ENGINE_ROOT` to UE 5.8, `JAVA_HOME` to Java 21, and `NUXIE_IOS_SIMULATOR_ID` to the simulator selected for this task. The gate:
 
+- Rejects stale native source inventories, including newly added Swift/Kotlin files, with a temporary-fixture regression.
 - Runs the production request ledger with address/undefined-behavior sanitizers.
 - Builds the plugin and Lab editor target.
-- Requires successful `Nuxie.Contract.SessionLifecycle`, `Nuxie.Contract.ValuesAndReceipts`, and `Nuxie.Contract.DeferredBudget` tests, with no failed or unrun Nuxie tests.
+- Requires successful `Nuxie.Contract.SessionLifecycle`, `Nuxie.Contract.ValuesAndReceipts`, and `Nuxie.Contract.DeferredBudget`, and `Nuxie.Contract.FeatureObserver` tests, with no failed or unrun Nuxie tests.
 - Builds and tests the Kotlin bridge.
 - Builds and tests the Swift bridge on the selected simulator.
 

@@ -52,3 +52,10 @@ bool FNuxieProperties::WithNumber(const FString& Name, double Number, FString& E
 bool FNuxieProperties::WithNull(const FString& Name, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::NullValue(), *this, Error); }
 bool FNuxieProperties::WithObject(const FString& Name, const FNuxieProperties& Value, FString& Error) { return UNuxieBlueprintLibrary::WithProperty(*this, Name, UNuxieBlueprintLibrary::ObjectValue(Value), *this, Error); }
 bool FNuxieProperties::WithArray(const FString& Name, const TArray<FNuxieJsonValue>& Values, FString& Error) { FNuxieJsonValue Value; return UNuxieBlueprintLibrary::ArrayValue(Values, Value, Error) && UNuxieBlueprintLibrary::WithProperty(*this, Name, Value, *this, Error); }
+
+FNuxieFeatureState FNuxieFeatureSnapshot::Select(const FString& FeatureId) const {
+  FNuxieFeatureState State;
+  State.Kind = Kind; State.CustomerId = CustomerId; State.IdentityGeneration = IdentityGeneration; State.Revision = Revision;
+  if (const auto* Access = All.Find(FeatureId)) { State.bHasAccess = true; State.Access = *Access; }
+  return State;
+}

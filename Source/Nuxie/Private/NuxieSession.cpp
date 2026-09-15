@@ -148,6 +148,12 @@ if (!NativeAvailable()) {
   });
 }
 bool FNuxieSession::Send(const FString& Method, NuxieWire::FObject Arguments, bool bDurable, FReply Reply) {
+  if (Method != TEXT("shutdown")) {
+    Reply = [Weak = TWeakPtr<FNuxieSession>(AsShared()), Callback = MoveTemp(Reply)](NuxieWire::FObject Value, FNuxieError Error) mutable {
+      auto Self = Weak.Pin();
+      if (Self && Self->Owner.IsValid()) Callback(Value, Error);
+    };
+  }
   const bool bCheckout = Method == TEXT("completePurchase") || Method == TEXT("completeRestore");
   const bool bLifecycle = Method == TEXT("configure") || Method == TEXT("shutdown") || Method == TEXT("identify") || Method == TEXT("reset");
   const int32 Capacity = bLifecycle ? 132 : bCheckout ? 128 : 64;
@@ -242,6 +248,17 @@ void FNuxieSession::ShutdownFor(UNuxieSubsystem* InOwner, FNuxieCompletion Compl
   if (NativeOwner && !NativeOwner->Owner.IsValid()) { NativeOwner->Shutdown(MoveTemp(Completion)); return; }
   const auto Error = NativeOwner ? NuxieWire::Error(ENuxieErrorCode::SessionInUse, TEXT("Another live game instance owns Nuxie.")) : FNuxieError();
   Defer([Completion, Error]() { Completion.ExecuteIfBound(Result(Error)); });
+}
+void FNuxieSession::DetachOwner() {
+  check(IsInGameThread());
+  Owner.Reset(); Controller.Reset();
+  ConfigureWaiters.Reset(); ShutdownWaiters.Reset();
+  // Preserve an existing native shutdown acknowledgement; it releases the process lease.
+  if (Status.Kind != ENuxieStatusKind::ShuttingDown) {
+    Replies.Empty();
+    for (const auto& Id : Ledger.all()) Ledger.take(Id);
+    Shutdown(FNuxieCompletion());
+  }
 }
 void FNuxieSession::Shutdown(FNuxieCompletion Completion) {
   check(IsInGameThread());
