@@ -4,6 +4,8 @@ The replacement SDK has passed local qualification on both mobile platforms: pub
 
 ## Candidate and environment
 
+The merged dependency pins are iOS `0a84b32475a48db097b4e8b32e05b44736801ed0` and Android `a7130806b4212b18284711a7720b6fa677baeb57`. iOS has the identical Git tree as its qualified candidate below; Android differs only in accessibility device tests and qualification documentation. Production native source is unchanged. CI retirement also changes no runtime code. The final local gate verifies these landed pins.
+
 Runtime and Android Lab candidate: `2ebaa68a21809ea813f130ba5e5ee48a66ef5427`. The iOS Lab uses `a62f360`; its plugin source and iOS dependency are unchanged. Rebuilding the prepared iOS framework after the Android refresh verified all six physical-device payload files byte-for-byte identical, including the executable and four bundle resources. The iOS device, store, consumer and Shipping results below therefore qualify the same iOS implementation. The rebuilt simulator executable is covered separately by the Swift bridge gate.
 
 - iOS `5369e7c06ef986fcea666a92ced816c90530aa95` ([PR #429](https://github.com/nuxieai/nuxie-ios/pull/429)).

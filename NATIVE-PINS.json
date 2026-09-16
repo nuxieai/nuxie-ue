@@ -3,11 +3,11 @@
   "contract": 1,
   "ios": {
     "repository": "https://github.com/nuxieai/nuxie-ios.git",
-    "revision": "5369e7c06ef986fcea666a92ced816c90530aa95"
+    "revision": "0a84b32475a48db097b4e8b32e05b44736801ed0"
   },
   "android": {
     "repository": "https://github.com/nuxieai/nuxie-android.git",
-    "revision": "27e7abe145156f99c4a57e1a9f46fd1763e9ceb3"
+    "revision": "a7130806b4212b18284711a7720b6fa677baeb57"
   },
   "unreal": "5.8"
 }
