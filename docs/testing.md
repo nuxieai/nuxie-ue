@@ -32,6 +32,12 @@ Set `UNREAL_ENGINE_ROOT` to UE 5.8, `JAVA_HOME` to Java 21, and `NUXIE_IOS_SIMUL
 
 The PR records the committed-tree gate receipt, including the shutdown probe and current native pins. The current iOS native gate also passed its unit, focused runtime, hosted UIKit input, integration and macOS checks. The Android native gate passed its test, API, lint and example-build lanes. Missing tools fail the gate; TypeScript checks do not apply to the Unreal repository.
 
+## Hosted validation
+
+The manual **SDK validation** GitHub workflow executes the portable production request-ledger test with address/undefined-behavior sanitizers on Linux. Full Unreal and native qualification uses the required local gate above because it requires the licensed UE installation and mobile toolchains.
+
+The retired `nuxie-unreal-ci` Buildkite pipeline is archived; its pipeline configuration and compatibility launcher have been removed. PRs use the local readiness receipt rather than the former `Required signoffs` status.
+
 ## Current device results
 
 Dates and times are September 16, 2026 UTC. Both columns qualify the current native pins; Android was rerun after integrating the native accessibility refresh.
