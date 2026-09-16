@@ -7,7 +7,7 @@
   },
   "android": {
     "repository": "https://github.com/nuxieai/nuxie-android.git",
-    "revision": "57561cb57fa0f333b0ca06cf8a3652375953337b"
+    "revision": "2f6aa3adf20b3ddba934ce16b52ccf91e1fab547"
   },
   "unreal": "5.8"
 }
