@@ -4,10 +4,12 @@ The replacement SDK has passed the checks below. It is **not yet declared merge-
 
 ## Candidate and environment
 
-The tested runtime is `718f2801a7e5374d742199842bb8eba7149defa4`, with native pins:
+The last device-tested runtime is `718f2801a7e5374d742199842bb8eba7149defa4`, with native pins:
 
 - iOS `f54152c79b26005f902a2487f863ae6f182a3714` ([PR #429](https://github.com/nuxieai/nuxie-ios/pull/429)).
 - Android `b32c9fdba42cb15af48c745ac8c2b1640f4c7708` ([PR #111](https://github.com/nuxieai/nuxie-android/pull/111)).
+
+The parent branch has since been rebased onto current `main`. Its native fixes now include upstream presentation/runtime updates, pinned in `NATIVE-PINS.json`; rebuilding and requalifying those dependencies is required before this historical snapshot can be superseded.
 
 Qualification uses UE 5.8.2 on Mac arm64, an API 36 arm64 Android emulator, and a physical iPhone 17 Pro Max. iOS checks use wired XCTest/devicectl; Android checks use adb. Backend checks use disposable local development apps and customers. Store checks use Apple's Sandbox and Google's no-charge test payment method.
 
