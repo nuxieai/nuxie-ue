@@ -1,6 +1,6 @@
 # Validation
 
-The replacement SDK has passed the checks below. It is **not yet declared merge-ready**: the current Apple sandbox transaction, final readiness receipt, and parent integration PR remain open. The historical Android profile-admission investigation is tracked separately. This page separates current device evidence from limitations; historical build results are retained in Git history.
+The replacement SDK has passed local qualification on both mobile platforms: public API behavior, controller lifetime, native presentation, real sandbox purchase/restore, prepared Blueprint-only consumers, and Shipping artifact checks. The exact candidate, evidence and explicitly unrun release lanes are recorded below. Final committed-tree readiness is recorded in [Unreal PR #6](https://github.com/nuxieai/nuxie-ue/pull/6) and [parent integration PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512).
 
 ## Candidate and environment
 
@@ -8,7 +8,7 @@ Runtime plugin candidate: `be33771d855d8bbd8b4c3dd19e18ba8462036036`. Lab candid
 
 - iOS `5369e7c06ef986fcea666a92ced816c90530aa95` ([PR #429](https://github.com/nuxieai/nuxie-ios/pull/429)).
 - Android `57561cb57fa0f333b0ca06cf8a3652375953337b` ([PR #111](https://github.com/nuxieai/nuxie-android/pull/111)).
-- Parent integration `133d16f7dfab29993e7334ed10522bfaea9c09f8`, based on `e42ce6bcc5`.
+- Backend qualification uses parent `e9533c458f6f1559008b42edad38808fb7a03126`, based on `e42ce6bcc5`; [PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final SDK pointer.
 
 Qualification uses UE 5.8.2 on Mac arm64, an API 36 arm64 Android emulator, and a physical iPhone 17 Pro Max. iOS checks use wired XCTest/devicectl; Android checks use adb. Backend checks use disposable local development apps and customers. Store checks use Apple's Sandbox and Google's no-charge test payment method.
 
@@ -30,7 +30,7 @@ Set `UNREAL_ENGINE_ROOT` to UE 5.8, `JAVA_HOME` to Java 21, and `NUXIE_IOS_SIMUL
 - Native source-inventory regression, including newly added/deleted Swift and Kotlin files.
 - Kotlin bridge build/tests and Swift bridge simulator tests.
 
-The gate passed at current runtime `be33771`. The current iOS native gate also passed its unit, focused runtime, hosted UIKit input, integration and macOS checks. The Android native gate passed its test, API, lint and example-build lanes. Missing tools fail the gate; TypeScript checks do not apply to the Unreal repository.
+The gate passed at `ab05005`, including the shutdown probe and refreshed evidence; the PR records the receipt for subsequent documentation-only commits. The current iOS native gate also passed its unit, focused runtime, hosted UIKit input, integration and macOS checks. The Android native gate passed its test, API, lint and example-build lanes. Missing tools fail the gate; TypeScript checks do not apply to the Unreal repository.
 
 ## Current device results
 
@@ -69,16 +69,19 @@ An earlier runtime received a real Google `SUBSCRIPTION_PURCHASED` notification 
 
 ### App Store
 
-The historical Apple Staging Lab used `ai.nuxie.ios.staging.unreal.qualification.monthly`. StoreKit displayed Sandbox, $0.99/month and the no-charge notice; the user authenticated and physically confirmed the purchase.
+The current Apple Staging Lab uses `ai.nuxie.ios.staging.unreal.qualification.monthly`. StoreKit displayed Sandbox, $0.99/month and the no-charge notice; the user authenticated and physically confirmed the purchase.
 
-- Empty restore completed at 00:13:20.156 through `unreal_apple_empty`.
-- Real purchase completed at 00:24:13.603 through `unreal_apple_purchased`.
-- Authenticated active restore completed at 00:33:32.180 through `unreal_apple_restored`.
-- Each terminal route completed the Journey, dismissed the Experience and released its pause.
+- Real cancellation completed at 02:47:02.722 through `unreal_apple_cancelled` and released pause.
+- Real purchase completed at 03:16:57.530 through `unreal_apple_purchased`.
+- Active restore completed at 03:18:00.157 through `unreal_apple_restored`.
+- Both success routes completed their Journeys, dismissed their Experiences and released pause. The local fixture can immediately admit another Journey; each dismissal is checked before the next presentation.
+- Device `purchase_synced` arrived at 03:17:39.623 and the client returned to Ready. The initial retryable reconciliation response was not counted as successful synchronization.
+- An independent authenticated `/purchase` replay of Apple's signed transaction `2000001236916382` returned HTTP 200, idempotent replay and `unreal_apple_access.allowed=true` at 03:17:50.418.
+- Apple's signed subscription status independently reported the same original lineage active at 03:18:07.720. Signed proof bodies and account credentials remain private.
 
-The active restore exposed backend handling of a same-original subscription purchased again after a lapse. [UNIV-3191](https://universe.basis.dev/issue/UNIV-3191) fixes that transition in authoritative history, preserving owned source IDs, immutable terms, the access gap, and strict contiguity for actual renewals. It also retains original-purchase and single-transaction deferral.
+An additional checkout emitted its failure route before the successful restore; it is retained in the device observations and is not counted as a successful purchase. Store-managed deferred/Ask-to-Buy approval is unrun with this account configuration. The external-controller pending cases prove that protocol outcome, not a real deferred store transaction.
 
-With backend commit `0533ac72fb`, the real queue completed 1/1. Transaction `2000001236865032` returned HTTP 200 and `unreal_apple_access.allowed=true` at 00:43:34.405. The device emitted `purchase_synced` for both retained transactions at 00:43:36.241–242. Apple's signed subscription status independently reported active at 00:43:58.182. The fix passed 835 connector unit tests, root lint (69 tasks), root typecheck (70 tasks), and independent standards/spec reviews with no actionable findings. Its backend PR/readiness remains separate from the native SDK receipt.
+Earlier sandbox qualification exposed a same-original subscription purchased again after a lapse. [UNIV-3191](https://universe.basis.dev/issue/UNIV-3191) fixes that transition in authoritative history, preserving owned source IDs, immutable terms, the access gap, and strict contiguity for actual renewals. Original-purchase and single-transaction deferral remain intact. The fresh transaction above independently exercises that fixed path on the current backend. The fix passed 835 connector unit tests, root lint/typecheck and independent standards/spec reviews.
 
 Related backend fixes cover requested-lineage filtering, receipt order and chronological history ([UNIV-3186](https://universe.basis.dev/issue/UNIV-3186)), and full signed subscription-status admission ([UNIV-3189](https://universe.basis.dev/issue/UNIV-3189)). Signature, customer ownership and published release checks remain enforced.
 
@@ -120,17 +123,25 @@ Development-only `auto.json` options exercise presentation policy:
 
 These probes are excluded from Shipping builds. Keep public keys and local fixtures out of committed example defaults; never commit store credentials, purchase tokens or signed transaction bodies.
 
-## Remaining qualification and tracked limitations
+## Tracked limitations and release boundaries
 
-- Complete the current Apple sandbox transaction and record its authoritative backend result.
-- Classify the retained-data Android profile-admission observation under [UNIV-3190](https://universe.basis.dev/issue/UNIV-3190). One managed launch after external-controller checks rejected authentication. Clean managed and subsequent warm launches passed, but that does not establish the original cause. The preserved private backup contains app files, not the original shared-preferences replay floor.
-- Finish current-head reviews/readiness and the parent backend/submodule integration PR. Preserve unrelated work.
-- Historical Apple lineage recovery without an initial ownership anchor remains tracked separately in [UNIV-3184](https://universe.basis.dev/issue/UNIV-3184). The fresh, anchored qualification lineage above passes.
+- [UNIV-3190](https://universe.basis.dev/issue/UNIV-3190) retains one historical Android profile-admission rejection. Six alternating external/managed launches on the current runtime passed without clearing app data. The original cause remains unclassified: the preserved backup lacks the original shared-preferences replay floor. Authentication fences were not weakened.
+- Historical Apple lineage recovery without an initial ownership anchor remains tracked in [UNIV-3184](https://universe.basis.dev/issue/UNIV-3184). The anchored qualification lineage above passes.
 - A retained schema-v1 database from an older native test host requires a clean supported installation; clearer failure propagation is tracked in [UNIV-3183](https://universe.basis.dev/issue/UNIV-3183).
-- The installed Epic distribution lacks some iOS-simulator third-party link inputs. Swift bridge simulator tests pass; a full Unreal simulator player is not claimed.
+- The installed Epic distribution lacks some iOS-simulator third-party link inputs. Swift bridge simulator tests pass; a full Unreal simulator player is unrun.
+- Store-managed deferred approval and final-candidate RTDN persistence are unrun. Store submission, distribution signing and public archive publication are separate release steps.
+
+## Shipping artifacts
+
+Both local Shipping builds passed from `ab05005` source. Comparing actual Development and Shipping binaries verifies removal of the Lab's unattended runner and external-controller probe markers. The iOS Shipping host also omits `NUXIE_UNREAL_API_ENDPOINT`. All four native Apple bundle resources, including privacy and timezone data, match the prepared framework byte-for-byte; strict signing passes.
+
+The Android Shipping APK retains both native runtime libraries and timezone data. Signature verification, ZIP 16 KiB alignment, and load-segment alignment/congruence pass for all seven Shipping ELF libraries. These builds use local development signing/non-distribution packaging; they do not claim store submission validation.
+
+- Android Shipping APK SHA-256: `ebf24224e66be250ca6fb0d8069791854f7352aeec24542832d86453d46a3ee9`.
+- iOS Shipping executable SHA-256: `53fb6c0d676543405ccee39160b501e91f2a832a989bb2e8e023678f619ced77`.
+
+Both use `RunUAT.sh BuildCookRun` with `-clientconfig=Shipping -build -cook -stage -pak -package -map=Lab+LabSecond -AdditionalCookerOptions=-nowrite -UbtArgs=-NoUBA`, plus `-platform=Android -cookflavor=ASTC` or `-platform=IOS`.
 
 ## Parent integration evidence
 
-`pnpm run pr:ready` passed at parent `133d16f7df`: commerce documentation contract and exact Swift/provider compilation, root lint (69 tasks), root typecheck (70 tasks), connector unit tests (835), durable-object unit tests (1,076), and readiness-policy tests (66). SDK gates pass separately at the native pins above. The associated parent PR is prepared but not yet opened; final qualification and current evidence documentation still need completion.
-
-Six alternating external/managed launches (three pairs) also reached Ready and presented authenticated Experiences without clearing the current Android installation. The historical [UNIV-3190](https://universe.basis.dev/issue/UNIV-3190) rejection remains unclassified; these successful current runs do not establish its cause.
+`pnpm run pr:ready` passed at parent `e9533c458f`: commerce documentation contract and exact Swift/provider compilation, root lint (69 tasks), root typecheck (70 tasks), connector unit tests (835), durable-object unit tests (1,076), and readiness-policy tests (66). SDK gates pass separately at the native pins above. [Parent PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final pointer and its committed-tree receipt. No required local gate is intentionally skipped.

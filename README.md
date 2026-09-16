@@ -16,7 +16,7 @@ Configure once. Keep the client across maps. Observe access as it changes, spend
 | Desktop editor | Loads the plugin and compiles graphs; mobile commands return `UnsupportedPlatform` |
 | Desktop player or dedicated server | No mobile runtime and no simulated access grants |
 
-The target engine is **UE 5.8**, with builds being qualified on **5.8.2**. This branch is not a qualified release archive yet. See [validation evidence](docs/testing.md) for the distinction between passing checks and pending device qualification.
+The target engine is **UE 5.8**, locally qualified on **5.8.2** with iOS and Android players and prepared Blueprint-only consumers. See [validation evidence](docs/testing.md) for the tested revisions, real sandbox results, and release limitations.
 
 ### Install the plugin
 
