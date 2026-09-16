@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='package-', dir=root / '.native') as tem
     stage.mkdir()
     for name in ('Source', 'Config', 'docs'):
         shutil.copytree(root / name, stage / name)
-    for name in ('Nuxie.uplugin', 'NATIVE-PINS.json', 'README.md'):
+    for name in ('Nuxie.uplugin', 'NATIVE-PINS.json', 'README.md', 'LICENSE'):
         shutil.copy2(root / name, stage / name)
     for name in ('Android/lib', 'Android/maven', 'IOS/lib', 'Notices'):
         shutil.copytree(root / 'ThirdParty' / name, stage / 'ThirdParty' / name)

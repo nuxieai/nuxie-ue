@@ -248,3 +248,7 @@ For local endpoints, use the SDK ingest service from your backend checkout's `pn
 See [build instructions](docs/getting-started.md), [architecture](docs/architecture.md), [API reference](docs/api-reference.md), and [testing](docs/testing.md).
 
 Native revisions and the bridge contract are pinned in `NATIVE-PINS.json`. Build artifacts must come from those revisions. Source checks, editor tests, and native compilation are useful evidence; packaged device runs and store sandbox checkout remain separate qualification steps.
+
+## License
+
+The Unreal SDK is licensed under the [MIT License](LICENSE). Bundled native SDKs and third-party components retain their respective licenses in [ThirdParty/Notices](ThirdParty/Notices).
