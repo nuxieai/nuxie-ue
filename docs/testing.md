@@ -4,15 +4,15 @@ The replacement SDK has passed local qualification on both mobile platforms: pub
 
 ## Candidate and environment
 
-Runtime plugin candidate: `be33771d855d8bbd8b4c3dd19e18ba8462036036`. Lab candidate `a62f360` adds a Development-only shutdown probe; plugin source and native dependencies are unchanged.
+Runtime and Android Lab candidate: `ea790ac681e8b4ba9510ea5c44e56ee75c864272`. The iOS Lab uses `a62f360`; its plugin source and iOS dependency are unchanged. Rebuilding the prepared iOS framework after the Android refresh verified all six physical-device payload files byte-for-byte identical, including the executable and four bundle resources. The iOS device, store, consumer and Shipping results below therefore qualify the same iOS implementation. The rebuilt simulator executable is covered separately by the Swift bridge gate.
 
 - iOS `5369e7c06ef986fcea666a92ced816c90530aa95` ([PR #429](https://github.com/nuxieai/nuxie-ios/pull/429)).
-- Android `57561cb57fa0f333b0ca06cf8a3652375953337b` ([PR #111](https://github.com/nuxieai/nuxie-android/pull/111)).
-- Backend qualification uses parent `e9533c458f6f1559008b42edad38808fb7a03126`, based on `e42ce6bcc5`; [PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final SDK pointer.
+- Android `2f6aa3adf20b3ddba934ce16b52ccf91e1fab547` ([PR #111](https://github.com/nuxieai/nuxie-android/pull/111)).
+- Backend qualification uses parent `36d539062af5caea9b04bd5c72ea609e0e809b9c`, based on `87f1d55afe`; [PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final SDK pointer.
 
 Qualification uses UE 5.8.2 on Mac arm64, an API 36 arm64 Android emulator, and a physical iPhone 17 Pro Max. iOS checks use wired XCTest/devicectl; Android checks use adb. Backend checks use disposable local development apps and customers. Store checks use Apple's Sandbox and Google's no-charge test payment method.
 
-The refreshed Lab binaries at `a62f360` have SHA-256 `4e327984706e86ef9e632d578271844f181bb52f5cab3ac822482273b50c0fa5` (Android APK) and `330c99fbea077e957de0752819747de688f709a18770504302a477c6b2947cba` (Apple Lab executable). Earlier `be33771` controller and store checks exercise unchanged plugin source and native dependencies. The added Lab shutdown probe was packaged and run on both platforms.
+The Android Lab APK has SHA-256 `752661272b736808fbf0e04853fe49bbc3c9b40f5dff30b400c2b6ea2f781acd`; the qualified Apple Lab executable has SHA-256 `330c99fbea077e957de0752819747de688f709a18770504302a477c6b2947cba`. The Development-only shutdown probe was packaged and run on both platforms.
 
 ## Required local gate
 
@@ -30,20 +30,20 @@ Set `UNREAL_ENGINE_ROOT` to UE 5.8, `JAVA_HOME` to Java 21, and `NUXIE_IOS_SIMUL
 - Native source-inventory regression, including newly added/deleted Swift and Kotlin files.
 - Kotlin bridge build/tests and Swift bridge simulator tests.
 
-The gate passed at `ab05005`, including the shutdown probe and refreshed evidence; the PR records the receipt for subsequent documentation-only commits. The current iOS native gate also passed its unit, focused runtime, hosted UIKit input, integration and macOS checks. The Android native gate passed its test, API, lint and example-build lanes. Missing tools fail the gate; TypeScript checks do not apply to the Unreal repository.
+The PR records the committed-tree gate receipt, including the shutdown probe and current native pins. The current iOS native gate also passed its unit, focused runtime, hosted UIKit input, integration and macOS checks. The Android native gate passed its test, API, lint and example-build lanes. Missing tools fail the gate; TypeScript checks do not apply to the Unreal repository.
 
 ## Current device results
 
-Dates and times are September 16, 2026 UTC. Both columns qualify the current native pins; the new shutdown probe uses the `a62f360` Lab.
+Dates and times are September 16, 2026 UTC. Both columns qualify the current native pins; Android was rerun after integrating the native accessibility refresh.
 
 | Check | iOS | Android |
 | --- | --- | --- |
-| Lifecycle: locale, reset/reidentify, denied usage/replay, shutdown/reconfigure, identity across map travel | Two fresh passes at 02:14:17 and 02:14:20 | Passed at 01:36:23 |
-| Metered consumption | One debit, one saved action, exact replay and unchanged second entity at 02:14:22 | Passed at 01:36:33; process restart replay preserved the prior applied-action count |
+| Lifecycle: locale, reset/reidentify, denied usage/replay, shutdown/reconfigure, identity across map travel | Two fresh passes at 02:14:17 and 02:14:20 | Passed at 03:38:53 |
+| Metered consumption | One debit, one saved action, exact replay and unchanged second entity at 02:14:22 | Passed at 03:38:59; process restart replay preserved the prior applied-action count |
 | Four external purchase outcomes | Purchased, cancelled, pending and failed passed at 01:55–01:56 | All passed on the refreshed runtime |
 | Three external restore outcomes | Restored, no purchases and failed passed at 01:55–01:56 | All passed on the refreshed runtime |
 | Retained request expiry | Both requests expired, followed failure routes, released pause and rejected late completion | Both passed |
-| Shutdown invalidates retained request while native UI is active | Purchase/restore passed at 02:13:37/48; shutdown took 0.60/0.63 seconds | Purchase/restore passed at 02:16:47/57; shutdown took 0.25/0.12 seconds |
+| Shutdown invalidates retained request while native UI is active | Purchase/restore passed at 02:13:37/48; shutdown took 0.60/0.63 seconds | Purchase/restore passed at 03:44:14/25; shutdown took 0.19/0.82 seconds |
 | Game-owned pause and callbacks beneath native UI | Typed App Action and deferred local rejection delivered while paused/presenting; dismissal preserved game-owned pause | Same assertions passed |
 | Map travel and background/foreground with native UI | `LabSecond`, retained presentation and pause through Home/resume, release on authored Close | Same-process Recent Apps resume preserved presentation; authored Close released pause |
 
@@ -61,9 +61,9 @@ All times in this section are September 16, 2026 UTC.
 
 The current `ai.nuxie.example` Lab used `nuxie_qualification`, base plan `monthly`. The real Play sheet displayed **Test card, always approves** and explicitly stated that no charge would occur.
 
-- Purchase completed at 01:44:11.333 (backend sync at 01:44:12.182), followed `unreal_play_purchased`, completed its Journey and released pause. `purchase_synced` arrived at 01:44:12.182.
-- A warm managed launch reached Ready. Restore completed at 01:44:53.869, followed `unreal_play_restored`, dismissed the Experience and released pause.
-- The Lab's remote Feature query returned allowed at 01:45:17.452. An independent backend `/entitled` query returned HTTP 200 with `unreal_play_access.allowed=true` at 01:44:54.428.
+- Purchase completed at 03:47:21.771 (backend sync at 03:47:22.179), followed `unreal_play_purchased`, completed its Journey and released pause. `purchase_synced` arrived at 03:47:22.179.
+- A warm managed launch reached Ready. Restore completed at 03:48:06.915, followed `unreal_play_restored`, dismissed the Experience and released pause.
+- Independent backend `/entitled` queries returned HTTP 200 with `unreal_play_access.allowed=true` after purchase and again after restore at 03:48:17.620.
 
 An earlier runtime received a real Google `SUBSCRIPTION_PURCHASED` notification through Google's signed push identity token: normal webhook authentication returned HTTP 202 and the queue completed 1/1. The temporary subscription and route-limited tunnel were removed. The exact persisted RTDN reconciliation result was not independently inspected, and a final-candidate RTDN rerun is not claimed.
 
@@ -87,10 +87,10 @@ Related backend fixes cover requested-lineage filtering, receipt order and chron
 
 ## Prepared Blueprint-only consumers and packaging
 
-`prepared-all-be33771` built for IOS, Android and Mac. All 310 manifest hashes verified. A fresh Blueprint-only consumer copied this archive; all 145 non-generated plugin files still matched after host builds.
+`prepared-all-ea790ac` built for IOS, Android and Mac. All 335 manifest hashes verified. A fresh Android Blueprint-only consumer copied this archive; all 171 non-generated plugin files still matched after the host build. The qualified iOS consumer used `prepared-all-be33771`; the refreshed archive has identical physical iOS framework payloads and unchanged iOS plugin source.
 
 - iOS: the refreshed consumer packaged and passed strict signing. Executable SHA-256: `435051c2b0cde03c6540a2a2f9a23f5b5559f991440175330cdbb1b625de9dd1`. A fresh installation ran the real identity-success Blueprint, rendered the published Experience at 02:17:54, and returned to Unreal after authored Close. A prior retained-data launch had already completed its startup Journey; it was not counted as a fresh-install rendering test.
-- Android: a fresh app-data launch with the local endpoint ran the actual Blueprint identity-success branch at September 16 01:33:45.165, rendered the backend Experience and returned to Unreal after authored Close.
+- Android: a fresh app-data launch with the local endpoint ran the actual Blueprint identity-success branch at September 16 03:47:55.672, rendered the backend Experience and returned to Unreal after authored Close.
 - The current Android store APK passed v2 signature verification, ZIP 16 KiB alignment, and load-segment alignment/congruence for all nine ELF libraries. Packaging used `-UbtArgs=-NoUBA` after UE's accelerator reported symlink bookkeeping errors.
 - iOS app signing passed `codesign --verify --deep --strict`.
 
@@ -133,15 +133,15 @@ These probes are excluded from Shipping builds. Keep public keys and local fixtu
 
 ## Shipping artifacts
 
-Both local Shipping builds passed from `ab05005` source. Comparing actual Development and Shipping binaries verifies removal of the Lab's unattended runner and external-controller probe markers. The iOS Shipping host also omits `NUXIE_UNREAL_API_ENDPOINT`. All four native Apple bundle resources, including privacy and timezone data, match the prepared framework byte-for-byte; strict signing passes.
+The Android Shipping build passed from `ea790ac`; the iOS Shipping build passed from `ab05005`, with unchanged iOS plugin source and identical prepared physical framework payloads. Comparing actual Development and Shipping binaries verifies removal of the Lab's unattended runner and external-controller probe markers. The iOS Shipping host also omits `NUXIE_UNREAL_API_ENDPOINT`. All four native Apple bundle resources, including privacy and timezone data, match the prepared framework byte-for-byte; strict signing passes.
 
 The Android Shipping APK retains both native runtime libraries and timezone data. Signature verification, ZIP 16 KiB alignment, and load-segment alignment/congruence pass for all seven Shipping ELF libraries. These builds use local development signing/non-distribution packaging; they do not claim store submission validation.
 
-- Android Shipping APK SHA-256: `ebf24224e66be250ca6fb0d8069791854f7352aeec24542832d86453d46a3ee9`.
+- Android Shipping APK SHA-256: `2691f57e15f4068aee6e315e18ed480dfa8ab52f495119aee070e99fc98c04ec`.
 - iOS Shipping executable SHA-256: `53fb6c0d676543405ccee39160b501e91f2a832a989bb2e8e023678f619ced77`.
 
 Both use `RunUAT.sh BuildCookRun` with `-clientconfig=Shipping -build -cook -stage -pak -package -map=Lab+LabSecond -AdditionalCookerOptions=-nowrite -UbtArgs=-NoUBA`, plus `-platform=Android -cookflavor=ASTC` or `-platform=IOS`.
 
 ## Parent integration evidence
 
-`pnpm run pr:ready` passed at parent `e9533c458f`: commerce documentation contract and exact Swift/provider compilation, root lint (69 tasks), root typecheck (70 tasks), connector unit tests (835), durable-object unit tests (1,076), and readiness-policy tests (66). SDK gates pass separately at the native pins above. [Parent PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final pointer and its committed-tree receipt. No required local gate is intentionally skipped.
+The parent readiness gate runs `pnpm run pr:ready`: commerce documentation contract and exact Swift/provider compilation, root lint and typecheck, connector and durable-object unit tests, and readiness-policy tests. SDK gates pass separately at the native pins above. [Parent PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512) records the final pointer and its committed-tree receipt. No required local gate is intentionally skipped.
