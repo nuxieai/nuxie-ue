@@ -115,6 +115,7 @@ Development-only `auto.json` options exercise presentation policy:
 - `gameOwnedPause: true`: pause before configuration; after dismissal, require `paused=true, presenting=false`.
 - `travelOnAppAction: true`: make `unreal_qa_action` travel to `LabSecond` without reconfiguring; require identity, Ready state, presentation and pause to survive. Run separately from game-owned pause, then verify dismissal releases the Experience-owned pause.
 - `externalBilling: true` with a supported `externalPurchaseOutcome` or `externalRestoreOutcome`: exercise the controller protocol. An empty outcome retains the request for manual completion, expiry or shutdown checks.
+- `externalShutdownKind: "purchase"` or `"restore"`, with external billing: when the controller receives that request, call the public Shutdown API while it is pending. `external-shutdown.json` records shutdown completion, an unconfigured client, and rejection of late completion on the retained request. This exercises shutdown beneath native UI; iOS host dismissal otherwise waits for in-flight billing.
 
 These probes are excluded from Shipping builds. Keep public keys and local fixtures out of committed example defaults; never commit store credentials, purchase tokens or signed transaction bodies.
 

@@ -49,6 +49,41 @@ void SaveExternalProbe(const TSharedRef<FJsonObject>& Report) {
   const bool bSaved = FFileHelper::SaveStringToFile(Json, *(Directory / TEXT("external-checkout.json")));
   UE_LOG(LogTemp, Display, TEXT("NuxieLab external protocol probe: %s (report saved: %s). This is not store purchase evidence."), *Json, bSaved ? TEXT("yes") : TEXT("no"));
 }
+bool ProbeExternalShutdown(UNuxieSubsystem* Client, UNuxiePurchaseRequest* Purchase, UNuxieRestoreRequest* Restore) {
+  const FString Kind = Purchase ? TEXT("purchase") : TEXT("restore");
+  if (ExternalProbeOutcome(TEXT("externalShutdownKind")) != Kind) return false;
+  auto Report = MakeShared<FJsonObject>();
+  Report->SetStringField(TEXT("kind"), Kind);
+  Report->SetBoolField(TEXT("pendingBeforeShutdown"), Purchase ? Purchase->IsPending() : Restore->IsPending());
+  const double Started = FPlatformTime::Seconds();
+  // The game may shut down while native UI owns input. Dismissing that UI first
+  // would allow its in-flight checkout to finish and would not test this contract.
+  Client->Shutdown(FNuxieCompletion::CreateLambda([
+      Report, Started, WeakClient = TWeakObjectPtr<UNuxieSubsystem>(Client),
+      WeakPurchase = TWeakObjectPtr<UNuxiePurchaseRequest>(Purchase),
+      WeakRestore = TWeakObjectPtr<UNuxieRestoreRequest>(Restore)](const FNuxieResult& Result) {
+    const bool bRequestRetained = WeakPurchase.IsValid() || WeakRestore.IsValid();
+    const bool bPending = WeakPurchase.IsValid() ? WeakPurchase->IsPending() : WeakRestore.IsValid() && WeakRestore->IsPending();
+    const bool bLateRejected = WeakPurchase.IsValid()
+        ? !WeakPurchase->TryComplete(ENuxiePurchaseOutcome::Cancelled, TEXT("Late shutdown probe"))
+        : WeakRestore.IsValid() && !WeakRestore->TryComplete(ENuxieRestoreOutcome::Failed, TEXT("Late shutdown probe"));
+    const bool bUnconfigured = WeakClient.IsValid() && WeakClient->GetStatus().Kind == ENuxieStatusKind::Unconfigured;
+    Report->SetBoolField(TEXT("shutdownSucceeded"), Result.IsSuccess());
+    Report->SetBoolField(TEXT("requestRetained"), bRequestRetained);
+    Report->SetBoolField(TEXT("pendingAfterShutdown"), bPending);
+    Report->SetBoolField(TEXT("lateCompletionRejected"), bLateRejected);
+    Report->SetBoolField(TEXT("statusUnconfigured"), bUnconfigured);
+    Report->SetNumberField(TEXT("elapsedSeconds"), FPlatformTime::Seconds() - Started);
+    Report->SetBoolField(TEXT("passed"), Report->GetBoolField(TEXT("pendingBeforeShutdown")) &&
+        Result.IsSuccess() && bRequestRetained && !bPending && bLateRejected && bUnconfigured);
+    Report->SetStringField(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
+    FString Json; FJsonSerializer::Serialize(Report, TJsonWriterFactory<>::Create(&Json));
+    IFileManager::Get().MakeDirectory(*LabDirectory(), true);
+    const bool bSaved = FFileHelper::SaveStringToFile(Json, *(LabDirectory() / TEXT("external-shutdown.json")));
+    UE_LOG(LogTemp, Display, TEXT("NuxieLab external shutdown probe: %s (report saved: %s)."), *Json, bSaved ? TEXT("yes") : TEXT("no"));
+  }));
+  return true;
+}
 void ProbeExternalPurchase(UNuxiePurchaseRequest* Request) {
   const FString Name = ExternalProbeOutcome(TEXT("externalPurchaseOutcome"));
   if (Name.IsEmpty()) return;
@@ -178,6 +213,7 @@ void UNuxieLabBilling::BeginPurchase_Implementation(UNuxiePurchaseRequest* Reque
   if (Purchase && Purchase->IsPending()) { Request->TryComplete(ENuxiePurchaseOutcome::Failed, TEXT("The Lab already has a checkout.")); return; }
   Purchase = Request;
 #if UE_BUILD_DEVELOPMENT
+  if (ProbeExternalShutdown(GetGameInstance()->GetSubsystem<UNuxieSubsystem>(), Request, nullptr)) return;
   ProbeExternalPurchase(Request);
 #endif
   UE_LOG(LogTemp, Display, TEXT("NuxieLab external checkout retained. Use Cancel external checkout, or wait for the native deadline. Inspect Purchase.Product for the selected store offer."));
@@ -186,6 +222,7 @@ void UNuxieLabBilling::BeginRestore_Implementation(UNuxieRestoreRequest* Request
   if (Restore && Restore->IsPending()) { Request->TryComplete(ENuxieRestoreOutcome::Failed, TEXT("The Lab already has a restore.")); return; }
   Restore = Request;
 #if UE_BUILD_DEVELOPMENT
+  if (ProbeExternalShutdown(GetGameInstance()->GetSubsystem<UNuxieSubsystem>(), nullptr, Request)) return;
   ProbeExternalRestore(Request);
 #endif
   UE_LOG(LogTemp, Display, TEXT("NuxieLab external restore retained. Use Fail external restore, or wait for the native deadline."));
