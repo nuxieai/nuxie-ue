@@ -5,8 +5,10 @@
 Current pins are iOS `858321e2` and Android `1514b1c`. Native preparation
 completed against the iOS content-addressed-video fix. Both native receipts
 validate current source, pins, and bytes (two Apple archives and 56 Android
-artifacts). Fresh package qualification, actual signed-video mobile playback,
-and final readiness remain outstanding at these pins.
+artifacts). `scripts/package.py --output dist/video-alias-fix` passed all IOS, Android,
+and Mac BuildPlugin targets. Independent verification checked all 271 file hashes
+and the exact native pins. Actual signed-video mobile playback and final
+readiness remain outstanding at these pins.
 
 ## Earlier native pin refresh — September 18, 2026
 
