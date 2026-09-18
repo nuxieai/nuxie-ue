@@ -11,8 +11,11 @@ archives. Both receipts validate against current source, pins, and bytes.
 `scripts/check.py` passed the sanitized C++ request ledger, receipt tests,
 Unreal editor/Lab build and automation, Android bridge tests/build, and all ten
 Swift simulator bridge tests. Android used an isolated Gradle cache because
-shared cache metadata was unavailable. Signed-video playback through Unreal
-mobile players and final readiness/review remain outstanding.
+shared cache metadata was unavailable. `scripts/package.py --output
+dist/video-refresh` passed BuildPlugin for IOS, Android, and Mac. Independent
+inspection verified all 271 packaged file hashes and the current native pins.
+Signed-video playback through Unreal mobile players and final readiness/review
+remain outstanding.
 
 ## Earlier video delivery candidate — September 18, 2026
 
