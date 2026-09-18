@@ -8,6 +8,36 @@ and interruption recovery fixes. Native preparation, wrapper builds, playback,
 and final readiness for these revisions remain pending. Results below identify
 the earlier revisions they qualified.
 
+## Current Android host startup diagnosis — September 18, 2026
+
+The retained ETC2 Development player reproducibly fails before SDK configuration
+on the approved API 36 emulator. `-vulkan -AllowCPUDevices` reaches UE's
+`FTexture2DResource::GetPlatformMipsSize`, then `RHICalcTexturePlatformSize`
+fails its temporary `vkCreateImage` with `VK_ERROR_VALIDATION_FAILED_EXT`.
+The device reports llvmpipe Vulkan 1.3.0. This reproduces the earlier ASTC failure;
+neither attempt proves which texture format failed.
+
+A scoped Khronos validation layer identifies a separate concrete engine/driver
+contract error: UE enables `VK_KHR_dynamic_rendering` without its required
+`VK_KHR_depth_stencil_resolve` extension. Setting
+`-ini:Engine:[ConsoleVariables]:r.Vulkan.AllowDynamicRendering=0` is accepted
+but leaves the extension enabled and the image failure unchanged. It is not a
+fix. Both validation-layer versions 1.4.357 and 1.3.290 then crash during engine
+initialization, so they do not establish the original image failure's cause.
+`-nullrhi` also fails before SDK configuration: Android inherits the generic
+PC D3D shader-format selection and `FNullDynamicRHI::Init` rejects that platform.
+No SDK or engine workaround has been committed. All temporary global Android
+GPU-debug settings were removed after diagnosis.
+
+The retained logs in the parent worktree are
+`.nuxie/task3b-unreal-agent-startup.log`,
+`.nuxie/task3b-unreal-agent-nullrhi.log`,
+`.nuxie/task3b-unreal-agent-validation-correct.log`,
+`.nuxie/task3b-unreal-agent-validation-1.3.log`, and
+`.nuxie/task3b-unreal-agent-no-dynamic-rendering.log`.
+These observations narrow the host blocker; Android Unreal video playback
+remains unqualified and must not be inferred from native SDK tests.
+
 ## Native video format fix — September 18, 2026
 
 The preceding qualification used iOS `858321e2` and Android `1514b1c`. Native preparation
