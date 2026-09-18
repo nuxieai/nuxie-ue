@@ -4,9 +4,36 @@
 
 iOS `95d76d41eb4cc945cb57e5c1bcd8333ed15d55cc` and Android `4d65783e2eec5b585673041146dff887258d3c93` include
 published Apple runtime 0.10.8 and Android runtime 0.4.8, rendered-video visibility,
-and interruption recovery fixes. Native preparation, wrapper builds, playback,
-and final readiness for these revisions remain pending. Results below identify
-the earlier revisions they qualified.
+and interruption recovery fixes. Both native preparations passed, and independent
+receipt validation verified two Apple archives and 81 Android artifacts. The
+native source-inventory regression also passed. Final wrapper readiness and
+full BuildPlugin packaging for these pins remain pending.
+
+Physical iOS qualification used the Bat Phone with the normal UE Metal player.
+The retained engine executable was unchanged; the freshly built Release
+`NuxieUnrealBridge.framework` replaced its older dynamic framework. The nested
+framework and app were signed again with the existing development identity and
+entitlements; `codesign --verify --deep --strict` passed. This explicitly
+qualifies that staged integration, not a fresh full Unreal package build.
+After a clean installation, 12 screenshots showed repeated red/blue video
+phases. A warm process relaunch passed six samples. A further warm relaunch
+while the fixture origin process was suspended passed eight samples; this is
+bounded origin-outage coverage, not an airplane-mode or indefinite-offline claim.
+The origin was restored immediately afterward.
+
+The exported native cache independently matched the signed inventory:
+scene `242a0ebc242f2617d923a9e1e04a7cf01b9d5d6a8e62cc934f1f26df6efef4db`
+(1,086 bytes) and video
+`f0a65563c100506c0f98c138e8be1ae333c9879bb77237fbada60bddcfa78669`
+(22,065 bytes). Screenshots, capture times, pixel results, cache verification,
+and staged executable/framework hashes are retained in the parent worktree's
+`.nuxie/task3b-unreal-current-ios/`. Native preparation logs are
+`.nuxie/task3b-unreal-final-ios-prepare.log` and
+`.nuxie/task3b-unreal-final-android-prepare.log`.
+
+Android Unreal playback remains blocked at engine startup as described below.
+Earlier results identify the revisions they qualified; they do not establish
+current-pin package or playback coverage.
 
 ## Current Android host startup diagnosis — September 18, 2026
 
