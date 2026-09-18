@@ -1,5 +1,34 @@
 # Validation
 
+## Video delivery candidate — September 18, 2026
+
+This candidate pins pushed native development revisions iOS
+`38428e8bb1c65605d6c982ff22b2a18d63229950` and Android
+`e76714a76e14b8f293e782934c107a789d0a67f0`, pending final native qualification
+and review under [UNIV-3262](https://universe.basis.dev/issue/UNIV-3262).
+
+On UE 5.8.2 and Xcode 27, `scripts/check.py` passed the sanitized production C++
+request-ledger checks, native source-inventory regression, editor plugin/Lab
+build, all four `Nuxie.Contract` automation suites, nine Android bridge tests,
+and ten Swift simulator bridge tests. Android preparation built the pinned SDK
+and bridge AAR. iOS preparation produced Release embedded-framework archives
+for device and simulator; the simulator binary contains both arm64 and x86_64.
+Both platform receipts validate against current source, pins, and artifact bytes.
+
+`scripts/package.py --output dist/video-candidate` also passed BuildPlugin for
+iOS, Android arm64, and Mac arm64, including Development and Shipping targets
+and the Mac editor plugin. Independent verification checked all 246 packaged
+file hashes and exact native pins. Mac compilation is editor/package evidence;
+it does not add a supported desktop native Experience host.
+
+These checks establish bridge behavior and native build integration. They do
+not qualify signed-video playback, acquisition, captions, or lifecycle through
+an Unreal mobile player. Those checks and final readiness/review remain
+outstanding. The earlier live/store evidence below covers the previous native
+revisions and must not be treated as video-candidate evidence.
+
+## Earlier qualification
+
 The replacement SDK has passed local qualification on both mobile platforms: public API behavior, controller lifetime, native presentation, real sandbox purchase/restore, prepared Blueprint-only consumers, and Shipping artifact checks. The exact candidate, evidence and explicitly unrun release lanes are recorded below. Final committed-tree readiness is recorded in [Unreal PR #6](https://github.com/nuxieai/nuxie-ue/pull/6) and [parent integration PR #6512](https://github.com/nuxieai/nuxie-dev/pull/6512).
 
 ## Candidate and environment
