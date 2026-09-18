@@ -1,8 +1,16 @@
 # Validation
 
-## Native pin refresh — September 18, 2026
+## Native video format fix — September 18, 2026
 
-Current development pins are iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
+Current pins are iOS `858321e2` and Android `1514b1c`. Native preparation
+completed against the iOS content-addressed-video fix. Both native receipts
+validate current source, pins, and bytes (two Apple archives and 56 Android
+artifacts). Fresh package qualification, actual signed-video mobile playback,
+and final readiness remain outstanding at these pins.
+
+## Earlier native pin refresh — September 18, 2026
+
+The earlier development pins were iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
 and Android `1514b1cce3d64502b483c41fa551e7290caf10b0`, including shared
 decoder admission and hidden-screen suspension. Android preparation rebuilt
 the pinned SDK and bridge; iOS preparation rebuilt Release device/simulator
