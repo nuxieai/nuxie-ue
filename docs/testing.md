@@ -1,6 +1,20 @@
 # Validation
 
-## Video delivery candidate — September 18, 2026
+## Native pin refresh — September 18, 2026
+
+Current development pins are iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
+and Android `1514b1cce3d64502b483c41fa551e7290caf10b0`, including shared
+decoder admission and hidden-screen suspension. Android preparation rebuilt
+the pinned SDK and bridge; iOS preparation rebuilt Release device/simulator
+archives. Both receipts validate against current source, pins, and bytes.
+
+`scripts/check.py` passed the sanitized C++ request ledger, receipt tests,
+Unreal editor/Lab build and automation, Android bridge tests/build, and all ten
+Swift simulator bridge tests. Android used an isolated Gradle cache because
+shared cache metadata was unavailable. Signed-video playback through Unreal
+mobile players and final readiness/review remain outstanding.
+
+## Earlier video delivery candidate — September 18, 2026
 
 This candidate pins pushed native development revisions iOS
 `38428e8bb1c65605d6c982ff22b2a18d63229950` and Android
