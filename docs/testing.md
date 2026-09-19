@@ -1,6 +1,16 @@
 # Validation
 
-## Current native pins
+## Final native pins
+
+iOS `1e6970f306a9dac2ed567a239bf0e64a83e2d7cc` and Android
+`20f9d42f7d5fe1cba6e2426d63c24499eb966ce7` add shared immutable-video
+bindings, caption preference refresh, and cancellation of obsolete admission
+preparation. These retain the previously qualified runtime renderer artifacts.
+Both final native preparations passed and their receipts validate against the
+exact frozen pins, source inventory, and artifact bytes. Final packaging and
+wrapper checks are pending.
+
+## Pins qualified before final admission and caption fixes
 
 iOS `48fa51d6591f61d437620abfa06eb7fcb1a64564` adds cache preservation when a
 second signed release declares inconsistent size metadata for a valid cached
