@@ -7,8 +7,12 @@ iOS `1e6970f306a9dac2ed567a239bf0e64a83e2d7cc` and Android
 bindings, caption preference refresh, and cancellation of obsolete admission
 preparation. These retain the previously qualified runtime renderer artifacts.
 Both final native preparations passed and their receipts validate against the
-exact frozen pins, source inventory, and artifact bytes. Final packaging and
-wrapper checks are pending.
+exact frozen pins, source inventory, and artifact bytes. Full BuildPlugin
+packaging passed IOS, Android, and Mac at `f79f309`; independent verification
+checked all 321 packaged file hashes and exact pins. Logs use
+`.nuxie/task3b-unreal-frozen-`; the package is `dist/video-frozen-f79f309`.
+Historical device evidence below remains scoped to its tested native revisions;
+this final refresh repeats native preparation, packaging, and wrapper checks.
 
 ## Pins qualified before final admission and caption fixes
 
