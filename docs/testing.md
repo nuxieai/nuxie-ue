@@ -4,9 +4,15 @@
 
 iOS `48fa51d6591f61d437620abfa06eb7fcb1a64564` adds cache preservation when a
 second signed release declares inconsistent size metadata for a valid cached
-video. Android remains `4d65783e2eec5b585673041146dff887258d3c93`. Updated native
-preparation and final readiness are pending. The playback evidence below uses
-the preceding iOS revision; the change is isolated to cache rejection behavior.
+video. Android remains `4d65783e2eec5b585673041146dff887258d3c93`. Both native preparations passed; independent receipt validation checked two Apple
+archives and 81 Android artifacts. Full BuildPlugin packaging passed IOS, Android,
+and Mac at `fc552f5`; all 296 packaged file hashes and exact pins were verified.
+The current Apple framework was staged into the unchanged, normally rendered
+Metal Lab player and re-signed as described below. Eight physical Bat Phone
+screenshots showed repeated red/blue phases on warm launch. Evidence is retained
+in `.nuxie/task3b-unreal-lease-ios/`; preparation/package logs use the
+`.nuxie/task3b-unreal-lease-fix-` prefix. The earlier cold and origin-outage Apple
+evidence below identifies its preceding revision explicitly.
 
 ## Published video pins qualified before cache rejection fix
 
@@ -41,9 +47,8 @@ and staged executable/framework hashes are retained in the parent worktree's
 `.nuxie/task3b-unreal-final-ios-prepare.log` and
 `.nuxie/task3b-unreal-final-android-prepare.log`.
 
-Android Unreal playback remains blocked at engine startup as described below.
-Earlier results identify the revisions they qualified; they do not establish
-current-pin package or playback coverage.
+Android playback is qualified through the supported DXT cook below. Earlier
+results identify the revisions they qualified.
 
 ## Current Android host startup diagnosis — September 18, 2026
 
@@ -59,8 +64,9 @@ then reproduced the same creation failure outside Unreal and the SDK, both with
 and without the view-format list. The same program successfully created BC1,
 BC3, and RGBA SRGB images with identical dimensions and flags, despite the driver
 advertising support for all four formats. This isolates the ETC2 creation failure
-to the emulator driver. A supported DXT cook is under qualification; normal
-shipping texture settings remain unchanged.
+to the emulator driver. A supported DXT cook successfully starts the normal Vulkan engine and SDK;
+shipping texture settings remain unchanged. The emulator driver defect is tracked
+in [UNIV-3287](https://universe.basis.dev/issue/UNIV-3287).
 
 A scoped Khronos validation layer identifies a separate concrete engine/driver
 contract error: UE enables `VK_KHR_dynamic_rendering` without its required
@@ -80,8 +86,22 @@ The retained logs in the parent worktree are
 `.nuxie/task3b-unreal-agent-validation-correct.log`,
 `.nuxie/task3b-unreal-agent-validation-1.3.log`, and
 `.nuxie/task3b-unreal-agent-no-dynamic-rendering.log`.
-These observations narrow the host blocker; Android Unreal video playback
-remains unqualified and must not be inferred from native SDK tests.
+The Android Development Lab was built with `BuildCookRun -platform=Android
+-cookflavor=DXT -clientconfig=Development -build -cook -stage -pak -package
+-map=Lab+LabSecond -AdditionalCookerOptions=-nowrite`. Launch arguments were
+`-vulkan -AllowCPUDevices
+-ini:Engine:[ConsoleVariables]:r.Vulkan.SupportsBCTextureFormats=1`; this enables
+the BC formats independently verified on this emulator. A clean app-data launch
+produced seven actual video samples after loading, with repeated red/blue phases.
+Warm process restart and actual Home/Recents return each passed three visible
+phase transitions. A warm relaunch while the shared fixture origin was suspended
+also passed three transitions after the profile request timed out; the origin
+was restored in a finally block. This is bounded origin-outage coverage.
+Exported scene/video cache bytes matched the signed hashes
+and sizes listed above. Evidence is retained in
+`.nuxie/task3b-unreal-dxt-android/`; build output is
+`.nuxie/task3b-unreal-android-dxt-build.log`. This is emulator qualification with
+normal engine rendering, not a hardware-decoder performance measurement.
 
 ## Native video format fix — September 18, 2026
 
