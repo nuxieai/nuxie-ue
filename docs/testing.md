@@ -2,12 +2,22 @@
 
 ## Current native pins
 
+iOS `48fa51d6591f61d437620abfa06eb7fcb1a64564` adds cache preservation when a
+second signed release declares inconsistent size metadata for a valid cached
+video. Android remains `4d65783e2eec5b585673041146dff887258d3c93`. Updated native
+preparation and final readiness are pending. The playback evidence below uses
+the preceding iOS revision; the change is isolated to cache rejection behavior.
+
+## Published video pins qualified before cache rejection fix
+
 iOS `95d76d41eb4cc945cb57e5c1bcd8333ed15d55cc` and Android `4d65783e2eec5b585673041146dff887258d3c93` include
 published Apple runtime 0.10.8 and Android runtime 0.4.8, rendered-video visibility,
 and interruption recovery fixes. Both native preparations passed, and independent
 receipt validation verified two Apple archives and 81 Android artifacts. The
-native source-inventory regression also passed. Final wrapper readiness and
-full BuildPlugin packaging for these pins remain pending.
+native source-inventory regression also passed. The local readiness gate passed at `6082fd6`: sanitized C++ checks, all four
+Unreal automation suites, nine Android bridge tests, and ten Swift bridge tests.
+Full BuildPlugin packaging passed IOS, Android, and Mac; independent verification
+checked all 296 packaged file hashes and exact native pins.
 
 Physical iOS qualification used the Bat Phone with the normal UE Metal player.
 The retained engine executable was unchanged; the freshly built Release
@@ -42,7 +52,15 @@ on the approved API 36 emulator. `-vulkan -AllowCPUDevices` reaches UE's
 `FTexture2DResource::GetPlatformMipsSize`, then `RHICalcTexturePlatformSize`
 fails its temporary `vkCreateImage` with `VK_ERROR_VALIDATION_FAILED_EXT`.
 The device reports llvmpipe Vulkan 1.3.0. This reproduces the earlier ASTC failure;
-neither attempt proves which texture format failed.
+a pass-through observation layer subsequently identified the failing image as
+`VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK` (148), 32×32, six mip levels, mutable-format
+flag, usage 7, and compatible view formats 147/148. A standalone Vulkan program
+then reproduced the same creation failure outside Unreal and the SDK, both with
+and without the view-format list. The same program successfully created BC1,
+BC3, and RGBA SRGB images with identical dimensions and flags, despite the driver
+advertising support for all four formats. This isolates the ETC2 creation failure
+to the emulator driver. A supported DXT cook is under qualification; normal
+shipping texture settings remain unchanged.
 
 A scoped Khronos validation layer identifies a separate concrete engine/driver
 contract error: UE enables `VK_KHR_dynamic_rendering` without its required
