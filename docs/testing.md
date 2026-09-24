@@ -1,6 +1,33 @@
 # Validation
 
-## Final native pins
+## Experience goal and eligibility pins
+
+iOS `8c41617716c5c5086aba44e0d64f048692c515ae` and Android
+`0cbe8086068eb1a0d7e1c53c4440de4c9e3bd5ae` implement the Experience policy
+hard cut: one optional goal, retained conversion measurement, presentation-safe
+exits, and offer-specific access checks. Both retain internal action/renderer
+origin through capture and restart; ordinary analytics IDs cannot authorize
+direct custom attribution. Milestone and old policy payloads are rejected.
+
+Both native SDK full gates passed at these pins. On September 24, 2026,
+the following engine-independent checks passed:
+
+- `python3 scripts/test-native-receipt.py`: source-inventory regression.
+- `clang++ -std=c++20 -Wall -Wextra -Werror -fsanitize=address,undefined Tests/request-ledger.cpp -o /tmp/nuxie-goal-ue-request-ledger` followed by that executable: request correlation, numeric fidelity, timeout, and identity checks.
+- `python3 scripts/prepare-android.py`: exact pinned SDK publication, Android bridge unit tests and release AAR preparation.
+- `xcodebuild -scheme NuxieUnrealBridge -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -derivedDataPath .build/DerivedData test CODE_SIGNING_ALLOWED=NO` from `ThirdParty/IOS`: all ten Swift bridge tests.
+- `bash scripts/build-framework.sh` from `ThirdParty/IOS`: Release device and simulator framework archives.
+- Independent `native_receipt.validate` calls: both Apple archives and all 31 Android artifacts match their source inventories and hashes.
+
+Logs: `/tmp/nuxie-goal-ue-authorized-{android,ios-tests,ios-artifacts}.txt`.
+The project owner explicitly authorized delivery without installing Unreal.
+UE 5.8 Editor compilation, Unreal automation, BuildPlugin packaging, and rendered
+Unreal-player acceptance are skipped for this change. `python3 scripts/check.py`
+previously exited 1 because the engine was absent; it is not reported as passing.
+Earlier engine results do not qualify these pins. The ordinary full gate remains
+unchanged for future changes.
+
+## Previous video SDK pin qualification
 
 iOS `1e6970f306a9dac2ed567a239bf0e64a83e2d7cc` and Android
 `20f9d42f7d5fe1cba6e2426d63c24499eb966ce7` add shared immutable-video
