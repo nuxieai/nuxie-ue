@@ -19,7 +19,7 @@ if (version['MajorVersion'], version['MinorVersion']) != (5, 8):
 def run(args, cwd=root, env=None):
     subprocess.run([str(arg) for arg in args], cwd=cwd, env=env, check=True)
 
-run(['bash', root / 'scripts/bazel/bazel.sh', 'test', '//:portable_tests'])
+run(['python3', root / 'scripts/bazel/sdk.py', 'test'])
 run(['python3', root / 'scripts/link-example.py'])
 run([build, 'NuxieLabEditor', 'Mac', 'Development', '-Project=' + str(project), '-architecture=arm64', '-NoHotReload', '-NoUBA'])
 report = root / 'dist/check-report'
@@ -32,11 +32,7 @@ required = {'Nuxie.Contract.DeferredBudget', 'Nuxie.Contract.SessionLifecycle', 
 passed = {test.get('fullTestPath') for test in result.get('tests', []) if test.get('state') == 'Success'}
 if result.get('failed') or result.get('notRun') or not required.issubset(passed):
     raise SystemExit('Unreal automation did not pass every Nuxie test.')
-run(['./gradlew', ':bridge:testDebugUnitTest', ':bridge:assembleRelease'], root / 'ThirdParty/Android')
-# A simulator identifier is deliberate: do not select another task's device automatically in the gate.
-simulator = os.environ.get('NUXIE_IOS_SIMULATOR_ID')
-if not simulator:
-    raise SystemExit('Set NUXIE_IOS_SIMULATOR_ID to an available iOS simulator for the Swift bridge tests.')
-run(['xcodebuild', '-scheme', 'NuxieUnrealBridge', '-destination', 'platform=iOS Simulator,id=' + simulator,
-     '-derivedDataPath', '.build/DerivedData', 'test', 'CODE_SIGNING_ALLOWED=NO'], root / 'ThirdParty/IOS')
+run(['python3', root / 'scripts/bazel/sdk.py', 'test-android'])
+run(['python3', root / 'scripts/prepare-android.py'])
+run(['python3', root / 'scripts/bazel/sdk.py', 'test-ios'])
 print('Nuxie: portable C++, Unreal editor, Android bridge, and iOS bridge checks passed.')

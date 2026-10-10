@@ -1,0 +1,26 @@
+env:
+  CI: "1"
+
+steps:
+  - label: ":unreal: Direct portable contracts"
+    command: |
+      set -euo pipefail
+      source scripts/bazel/ci-cache.sh
+      export NUXIE_BAZEL_JOBS=2
+      python3 scripts/bazel/sdk.py test
+    agents:
+      queue: nuxie-pr
+    timeout_in_minutes: 30
+  - label: ":apple: Direct Unreal native bridges"
+    command: |
+      set -euo pipefail
+      source scripts/bazel/ci-cache.sh
+      export NUXIE_BAZEL_JOBS=2
+      python3 scripts/bazel/sdk.py test-android
+      python3 scripts/prepare-android.py
+      python3 scripts/bazel/sdk.py test-ios
+      bash ThirdParty/IOS/scripts/build-framework.sh
+    agents:
+      queue: nuxie-pr
+      nuxie-platform: macos
+    timeout_in_minutes: 120

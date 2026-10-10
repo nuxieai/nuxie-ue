@@ -1,6 +1,12 @@
+load("@rules_swift//swift:swift.bzl", "swift_library")
+load("@rules_apple//apple:apple.bzl", "apple_xcframework")
+load("@rules_apple//apple:ios.bzl", "ios_unit_test")
+load("@rules_kotlin//kotlin:android.bzl", "kt_android_library", "kt_android_local_test")
+load("//scripts/bazel:bridge_artifacts.bzl", "bridge_aar", "bridge_framework_module")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_python//python:defs.bzl", "py_test")
+
 
 package(default_visibility = ["//visibility:public"])
 
@@ -14,6 +20,7 @@ cc_test(
     srcs = ["Tests/request-ledger.cpp"],
     copts = ["-std=c++20", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined"],
     linkopts = ["-fsanitize=address,undefined"],
+    features = ["asan"],
     deps = [":request_ledger"],
 )
 
@@ -25,3 +32,93 @@ py_test(
 )
 
 test_suite(name = "portable_tests", tests = [":request_ledger_test", ":native_receipt_test"])
+
+exports_files(["NATIVE-PINS.json"])
+config_setting(name = "release_configuration", values = {"compilation_mode": "opt"})
+
+swift_library(
+    name = "ios_bridge",
+    module_name = "NuxieUnrealBridge",
+    srcs = glob(["ThirdParty/IOS/Sources/NuxieUnrealBridge/*.swift"]),
+    deps = ["@nuxie_native_ios//:sdk"],
+    copts = ["-swift-version", "5", "-strict-concurrency=complete"],
+    features = ["swift.enable_library_evolution", "swift.emit_swiftinterface"],
+    defines = select({":release_configuration": [], "//conditions:default": ["DEBUG"]}),
+    target_compatible_with = ["@platforms//os:ios"],
+)
+
+bridge_framework_module(name = "ios_framework_module", deps = [":ios_bridge"])
+
+apple_xcframework(
+    name = "ios_bridge_xcframework",
+    bundle_name = "NuxieUnrealBridge",
+    bundle_id = "ai.nuxie.unreal.bridge",
+    deps = [":ios_framework_module"],
+    infoplists = ["//scripts/bazel:Bridge.plist"],
+    ios = {"device": ["arm64"], "simulator": ["arm64", "x86_64"]},
+    minimum_os_versions = {"ios": "17.0"},
+    families_required = {"ios": ["iphone", "ipad"]},
+)
+
+genrule(
+    name = "android_manifest",
+    srcs = ["ThirdParty/Android/bridge/src/main/AndroidManifest.xml"],
+    outs = ["BridgeAndroidManifest.xml"],
+    tools = ["//scripts/bazel:bridge_artifacts"],
+    cmd = "$(location //scripts/bazel:bridge_artifacts) manifest --input $(SRCS) --output $@ --package ai.nuxie.unreal",
+)
+
+BRIDGE_DEPS = [
+    "@nuxie_native_android//:sdk",
+    "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android",
+    "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+]
+kt_android_library(
+    name = "android_bridge",
+    srcs = glob(["ThirdParty/Android/bridge/src/main/**/*.kt"]) + glob(["ThirdParty/Android/bridge/src/main/**/*.java"], allow_empty = True),
+    manifest = ":android_manifest",
+    custom_package = "ai.nuxie.unreal",
+    deps = BRIDGE_DEPS,
+)
+bridge_aar(
+    name = "android_bridge_aar",
+    library = ":android_bridge",
+)
+
+swift_library(
+    name = "ios_test_library",
+    testonly = True,
+    module_name = "NuxieUnrealBridgeTests",
+    srcs = glob(["ThirdParty/IOS/Tests/NuxieUnrealBridgeTests/*.swift"]),
+    deps = [":ios_bridge", "@nuxie_native_ios//:sdk"],
+    copts = ["-swift-version", "5"],
+    target_compatible_with = ["@platforms//os:ios"],
+)
+ios_unit_test(
+    name = "ios_bridge_test",
+    deps = [":ios_test_library"],
+    minimum_os_version = "17.0",
+    tags = ["manual"],
+)
+
+genrule(
+    name = "android_test_suite",
+    srcs = glob(["ThirdParty/Android/bridge/src/test/**/*.kt"]),
+    outs = ["SdkTestSuite.java"],
+    tools = ["//scripts/bazel:test_suite"],
+    cmd = "$(location //scripts/bazel:test_suite) --output $@ $(SRCS)",
+)
+kt_android_local_test(
+    name = "android_bridge_test",
+    srcs = glob(["ThirdParty/Android/bridge/src/test/**/*.kt"]) + [":android_test_suite"],
+    associates = [":android_bridge"],
+    custom_package = "ai.nuxie.unreal",
+    manifest = ":android_manifest",
+    manifest_values = {"minSdkVersion": "23", "targetSdkVersion": "36"},
+    test_class = "ai.nuxie.bazel.SdkTestSuite",
+    deps = BRIDGE_DEPS + ["@bridge_maven//:junit_junit"] + ["@bridge_maven//:org_robolectric_robolectric", "@robolectric//bazel:android-all"],
+    jvm_flags = ["-Xmx1g", "-Djava.security.manager=allow"],
+    tags = ["manual"],
+)
+
+platform(name = "android_arm64", constraint_values = ["@platforms//os:android", "@platforms//cpu:arm64"])
