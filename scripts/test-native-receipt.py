@@ -35,6 +35,12 @@ class NativeReceiptTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'stale'):
                     validate(root, platform, receipt)
                 original.write_text('original implementation')
+                graph = root / 'MODULE.bazel'
+                previous = graph.read_bytes()
+                graph.write_text('changed build graph')
+                with self.assertRaisesRegex(ValueError, 'stale'):
+                    validate(root, platform, receipt)
+                graph.write_bytes(previous)
                 artifact.write_bytes(b'changed artifact')
                 with self.assertRaisesRegex(ValueError, 'stale'):
                     validate(root, platform, receipt)

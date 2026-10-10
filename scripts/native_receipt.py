@@ -10,8 +10,13 @@ def digest(path):
 
 def inputs(root, platform):
     paths = [root / 'NATIVE-PINS.json', root / 'scripts/write-native-receipt.py', root / 'scripts/native_receipt.py']
+    paths += [root / name for name in ('BUILD.bazel', 'MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', '.bazelversion', 'scripts/bazel/sdk.py', 'scripts/bazel/Bridge.plist')]
+    paths += sorted((root / 'scripts/bazel/locks').glob('*.json'))
+    paths += sorted((root / 'scripts/bazel').glob('*.patch'))
+    paths += sorted((root / 'scripts/bazel').glob('*.bzl'))
+    paths += [root / 'scripts/bazel/native_prepare.py', root / 'scripts/bazel/native_artifacts.py', root / 'scripts/bazel/bridge_artifacts.py']
     if platform == 'ios':
-        paths += [root / 'ThirdParty/IOS/Package.swift', root / 'ThirdParty/IOS/scripts/build-framework.sh']
+        paths += [root / 'scripts/prepare-ios.py', root / 'ThirdParty/IOS/Package.swift', root / 'ThirdParty/IOS/scripts/build-framework.sh']
         paths += sorted((root / 'ThirdParty/IOS/Sources').rglob('*.swift'))
     elif platform == 'android':
         paths += sorted(p for p in (root / 'ThirdParty/Android/bridge/src/main').rglob('*') if p.is_file())

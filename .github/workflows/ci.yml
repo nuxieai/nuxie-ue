@@ -18,5 +18,5 @@ jobs:
       - name: Execute portable request lifecycle tests
         env:
           NUXIE_BAZEL_BATCH: "1"
-        run: bash scripts/bazel/bazel.sh test //:portable_tests
+        run: python3 scripts/bazel/sdk.py test
 # Full native and Unreal qualification runs on the licensed local toolchain through scripts/check.py.
