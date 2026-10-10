@@ -1,0 +1,27 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:defs.bzl", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "request_ledger",
+    hdrs = ["Source/Nuxie/Private/Core/RequestLedger.h"],
+)
+
+cc_test(
+    name = "request_ledger_test",
+    srcs = ["Tests/request-ledger.cpp"],
+    copts = ["-std=c++20", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined"],
+    linkopts = ["-fsanitize=address,undefined"],
+    deps = [":request_ledger"],
+)
+
+py_test(
+    name = "native_receipt_test",
+    srcs = ["scripts/test-native-receipt.py", "scripts/native_receipt.py"],
+    main = "scripts/test-native-receipt.py",
+    imports = ["scripts"],
+)
+
+test_suite(name = "portable_tests", tests = [":request_ledger_test", ":native_receipt_test"])

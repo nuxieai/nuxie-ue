@@ -41,3 +41,6 @@ ThirdParty/IOS/lib/simulator/
 Examples/*/Config/User*.ini
 
 Examples/*/Build/
+/.bazel-cache.local.bazelrc
+/.bazel-cache.*.tmp
+/bazel-*
