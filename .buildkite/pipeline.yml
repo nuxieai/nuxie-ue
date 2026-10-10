@@ -25,7 +25,7 @@ steps:
         "cmake;3.22.1"
       python3 scripts/bazel/sdk.py test-android
       python3 scripts/prepare-android.py
-      python3 scripts/bazel/sdk.py test-ios
+      python3 scripts/bazel/ios_simulator.py --minimum-os 17.0 -- python3 scripts/bazel/sdk.py test-ios
       bash ThirdParty/IOS/scripts/build-framework.sh
     agents:
       queue: nuxie-pr
