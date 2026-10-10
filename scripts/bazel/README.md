@@ -19,9 +19,6 @@ Verify the cache override without compiling native sources:
 python3 -B -m unittest discover -s scripts/bazel -p 'test_cache.py'
 ```
 
-This workspace establishes the cache policy for the SDK's Bazel migration.
-Existing host-language build and qualification commands remain available.
-
 ## Direct portable and mobile bridge builds
 
 ```sh
@@ -39,8 +36,10 @@ sources compile in direct `//:android_bridge` / `//:ios_bridge` targets. Their
 existing JUnit/Robolectric and XCTest cases remain the test inputs. The direct
 Apple XCFramework target supplies all three required device/simulator
 architectures; staging retains Unreal's embedded-framework ZIP root and the
-native resource bundle. Native receipts inventory the actual Bazel build graph,
-preparation scripts, bridge sources and resulting customer artifacts.
+native resource bundle. Preparation checks actual Mach-O platforms and
+architectures before publishing either slice. Native receipts inventory the
+actual Bazel build graph, preparation scripts, bridge sources and resulting
+customer artifacts.
 
 Native SDK preparation consumes exact `NATIVE-PINS.json` source revisions. It
 can reuse absolute `NUXIE_IOS_ARTIFACTS` / `NUXIE_ANDROID_ARTIFACTS` receipt paths
@@ -52,6 +51,16 @@ intermediates, distribution directories and output bases remain checkout-local.
 The owning engine check still requires installed UE 5.8 and runs UBT, UHT,
 Unreal automation and UAT packaging with that engine's toolchain. Portable and
 native bridge Buildkite steps use the same local Bazel entry points. Native CI
-requires Xcode, an explicit `NUXIE_IOS_SIMULATOR_ID`, Java 21, Android SDK
-36/build-tools 36.0.0 and the native SDK's pinned NDK. Engine/editor/player
-qualification remains an independent installed-engine gate.
+requires Xcode, Java 21, Android SDK 36/build-tools 36.0.0 and the native SDK's
+pinned NDK. Engine/editor/player qualification remains an independent installed-engine gate.
+
+CI runs its iOS tests through `scripts/bazel/ios_simulator.py`. The helper
+creates and boots a private iPhone on the newest available compatible iOS
+runtime, passes its exact UUID to the Bazel test runner, and deletes it after
+success, failure or cancellation. Set `NUXIE_IOS_SIMULATOR_ID` to use an existing
+caller-owned simulator; the helper preserves that device. The same helper can
+wrap a local command, for example:
+
+```sh
+python3 scripts/bazel/ios_simulator.py --minimum-os 17.0 -- python3 scripts/bazel/sdk.py test-ios
+```
