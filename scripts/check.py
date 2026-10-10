@@ -4,7 +4,6 @@ from pathlib import Path
 import json
 import os
 import subprocess
-import tempfile
 
 root = Path(__file__).resolve().parent.parent
 engine = Path(os.environ.get('UNREAL_ENGINE_ROOT', '/Users/Shared/Epic Games/UE_5.8'))
@@ -20,12 +19,7 @@ if (version['MajorVersion'], version['MinorVersion']) != (5, 8):
 def run(args, cwd=root, env=None):
     subprocess.run([str(arg) for arg in args], cwd=cwd, env=env, check=True)
 
-run(['python3', root / 'scripts/test-native-receipt.py'])
-
-with tempfile.TemporaryDirectory(prefix='nuxie-contract-') as temporary:
-    binary = Path(temporary) / 'request-ledger'
-    run(['clang++', '-std=c++20', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', root / 'Tests/request-ledger.cpp', '-o', binary])
-    run([binary])
+run(['bash', root / 'scripts/bazel/bazel.sh', 'test', '//:portable_tests'])
 run(['python3', root / 'scripts/link-example.py'])
 run([build, 'NuxieLabEditor', 'Mac', 'Development', '-Project=' + str(project), '-architecture=arm64', '-NoHotReload', '-NoUBA'])
 report = root / 'dist/check-report'

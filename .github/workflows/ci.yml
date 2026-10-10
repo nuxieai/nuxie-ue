@@ -8,8 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/nuxie/bazel
+            ~/.cache/nuxie-tools/bazelisk
+          key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}
+          restore-keys: bazel-${{ runner.os }}-
       - name: Execute portable request lifecycle tests
-        run: |
-          c++ -std=c++20 -Wall -Wextra -Werror -fsanitize=address,undefined Tests/request-ledger.cpp -o /tmp/nuxie-contract
-          /tmp/nuxie-contract
+        env:
+          NUXIE_BAZEL_BATCH: "1"
+        run: bash scripts/bazel/bazel.sh test //:portable_tests
 # Full native and Unreal qualification runs on the licensed local toolchain through scripts/check.py.
