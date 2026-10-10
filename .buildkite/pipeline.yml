@@ -16,6 +16,13 @@ steps:
       set -euo pipefail
       source scripts/bazel/ci-cache.sh
       export NUXIE_BAZEL_JOBS=2
+      export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
+      export ANDROID_HOME="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
+      export ANDROID_SDK_ROOT="$ANDROID_HOME"
+      export PATH="$JAVA_HOME/bin:$PATH"
+      "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+        "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" \
+        "cmake;3.22.1"
       python3 scripts/bazel/sdk.py test-android
       python3 scripts/prepare-android.py
       python3 scripts/bazel/sdk.py test-ios
