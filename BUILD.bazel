@@ -39,6 +39,8 @@ config_setting(name = "release_configuration", values = {"compilation_mode": "op
 swift_library(
     name = "ios_bridge",
     module_name = "NuxieUnrealBridge",
+    generates_header = True,
+    generated_header_name = "NuxieUnrealBridge.h",
     srcs = glob(["ThirdParty/IOS/Sources/NuxieUnrealBridge/*.swift"]),
     deps = ["@nuxie_native_ios//:sdk"],
     copts = ["-swift-version", "5", "-strict-concurrency=complete"],
