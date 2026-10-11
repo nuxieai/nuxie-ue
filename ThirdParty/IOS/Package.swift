@@ -33,7 +33,8 @@ let package = Package(
     ),
     .testTarget(
       name: "NuxieUnrealBridgeTests",
-      dependencies: ["NuxieUnrealBridge"]
+      dependencies: ["NuxieUnrealBridge"],
+      resources: [.copy("native-v3")]
     )
   ],
   swiftLanguageModes: [.v5]
