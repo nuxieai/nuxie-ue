@@ -1,5 +1,8 @@
 """Publication stays isolated and refuses unsafe compiler product archives."""
 from pathlib import Path
+import json
+import os
+from unittest import mock
 import tempfile
 import subprocess
 import sys
@@ -9,7 +12,7 @@ from unittest.mock import patch
 import sdk
 import unittest
 import zipfile
-from sdk import extract_archive, publish_tree, verify_binary_platform, verify_binary_architectures
+from sdk import extract_archive, publish_tree, verify_binary_platform, verify_binary_architectures, simulator_flags
 
 class SDKPublicationTests(unittest.TestCase):
     def test_publication_copies_products_without_changing_compiler_cache(self):
@@ -101,6 +104,17 @@ class SimulatorRunnerTests(unittest.TestCase):
                  patch.object(sdk.subprocess, 'check_output', return_value=json.dumps({'devices': {runtime: [{'udid': 'selected', 'name': 'test'}]}})), \
                  self.assertRaisesRegex(ValueError, 'must run iOS'):
                 sdk.simulator_flags()
+
+
+class SimulatorDestinationTests(unittest.TestCase):
+    def test_private_lease_targets_exact_uuid_without_using_its_display_name_as_a_device_type(self):
+        identifier = '00000000-0000-4000-8000-000000000001'
+        devices = {'devices': {'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+            {'udid': identifier, 'name': 'Nuxie-Bazel-private-lease', 'isAvailable': True}
+        ]}}
+        with mock.patch.dict(os.environ, {'NUXIE_IOS_SIMULATOR_ID': identifier}), \
+             mock.patch('sdk.subprocess.check_output', return_value=json.dumps(devices)):
+            self.assertEqual(simulator_flags(), ['--test_arg=--destination=platform=ios_simulator,id=' + identifier])
 
 
 if __name__ == '__main__':
