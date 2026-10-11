@@ -1,0 +1,26 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -17,7 +17,7 @@
+     "org_robolectric_android_all_instrumented_12_robolectric_7732740_i7",
+     "org_robolectric_android_all_instrumented_13_robolectric_9030017_i7",
+     "org_robolectric_android_all_instrumented_14_robolectric_10818077_i7",
+-    "org_robolectric_android_all_instrumented_15_robolectric_13954326_i7",
++    "org_robolectric_android_all_instrumented_15_robolectric_12650502_i7",
+     "org_robolectric_android_all_instrumented_16_robolectric_13921718_i7",
+     "org_robolectric_android_all_instrumented_5_0_2_r3_robolectric_r0_i7",
+     "org_robolectric_android_all_instrumented_5_1_1_r9_robolectric_r2_i7",
+diff --git a/bazel/robolectric.bzl b/bazel/robolectric.bzl
+--- a/bazel/robolectric.bzl
++++ b/bazel/robolectric.bzl
+@@ -31,8 +31,8 @@
+         sha256 = "16f1f751643d1d3d5592008846bbdfc1e57cff15e6ec303d26584de3b6ac25ec",
+     ),
+     robolectric_version(
+-        version = "15-robolectric-13954326-i7",
+-        sha256 = "06c4c8602d6db7486266a982bc55834ed6dfebd62a0b88daca204139ecf142cb",
++        version = "15-robolectric-12650502-i7",
++        sha256 = "33c2d7cc4186d4605269d5d411fa1818972c5b30a9f70bfbbd3d430b076af52f",
+     ),
+     robolectric_version(
+         version = "14-robolectric-10818077-i7",
