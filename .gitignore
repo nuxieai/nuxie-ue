@@ -21,6 +21,7 @@ ThirdParty/IOS/Package.resolved
 
 # Generated distribution and local validation
 .native/
+/.build/
 dist/
 **/local-settings.json
 
