@@ -11,10 +11,28 @@ dependency is `7ebe2d72570b169712fd913fd2c5b2de4bf2848d`, landed in
 
 The owning SDK uses direct Bazel targets in local development and CI. Repository
 and action caches are shared across worktrees; compiler outputs and staged
-products are private to each checkout. Frontend helper checks and actual Debug
-and Release Apple action-graph audits passed, including device ARM64 and
-simulator ARM64/x86_64 compiler targets. Native preparation and bridge checks
-against the final landed producer pins remain pending.
+products are private to each checkout. On October 10, 2026, at build source
+`5ab64231bdffe022d6f16317a1a94fb0d245b4fc`, the following nonlicensed checks
+passed against the genuine, clean landed producer receipts:
+
+- `python3 -B -m unittest discover -s scripts/bazel -p 'test_*.py'`: 43 frontend, artifact, cache, publication, Mach-O and simulator lifecycle checks.
+- `python3 scripts/bazel/sdk.py test`: both portable targets passed from matching cached actions; the original C++ request ledger retains ASan/UBSan. `python3 -B scripts/test-native-receipt.py` also passed directly.
+- `python3 scripts/bazel/sdk.py test-android`: all nine original JUnit/Robolectric cases actually executed with zero failures, errors or skips. The compiler adapter supports Kotlin's local-test rule, and the API 35 jar matches the original Robolectric 4.14.1 dependency; authored tests and the Maven lock are unchanged.
+- `python3 scripts/prepare-android.py`: the release bridge AAR and native Maven publication passed. Independent inspection verified API 23, owning bridge classes, the original absence of consumer ProGuard rules, all 25 selected native Maven file hashes and the native license. The owning receipt validates 29 inputs and 26 artifacts.
+- `python3 scripts/bazel/ios_simulator.py --minimum-os 17.0 -- python3 scripts/bazel/sdk.py test-ios`: all ten original XCTest functions actually executed with zero failures. The owned simulator was deleted after the command.
+- `NUXIE_IOS_BUILD_CONFIGURATION=Debug python3 scripts/prepare-ios.py` and the same command with `Release`: both XCFrameworks and official embedded-framework receipts passed. Actual action graphs contain `arm64-apple-ios17.0`, `arm64-apple-ios17.0-simulator` and `x86_64-apple-ios17.0-simulator`; compiled Mach-O platforms are device 2 and simulator 7. Each slice includes the six genuine SDK resource files and the license. Independent ZIP inspection verified all 12 device and 14 simulator entries, exact content hashes, roots and deterministic metadata in both configurations.
+
+Native clients ran sequentially with one Bazel job, a 16 GiB execution stop,
+32 GiB admission for portable checks and 40 GiB for native preparation.
+Evidence, original failure logs, test names, action graphs, genuine receipts and
+configuration ZIPs are retained outside regenerable outputs at
+`/Users/levi/.codex/qualification/engine-bazel-20261010/nuxie-ue`.
+
+`python3 scripts/check.py` exited 1 before its build commands because UE 5.8 is
+not installed. The project owner explicitly waived licensed editor checks for
+this migration; UBT/UHT, Unreal automation, UAT BuildPlugin packaging and rendered
+player checks remain unqualified. The owning gate is unchanged and is not
+reported as an overall pass. Its nonlicensed commands were run separately above.
 `swift package --package-path ThirdParty/IOS dump-package` confirmed that the
 SwiftPM consumer manifest reads the exact landed iOS revision without compiling.
 Historical qualification below applies only to the revisions it names.
