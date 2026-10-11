@@ -23,6 +23,14 @@ single_version_override(
 bazel_dep(name = "rules_jvm_external", version = "6.9")
 bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_robolectric", version = "4.16.1", repo_name = "robolectric")
+# Keep the modern Bazel rule APIs while matching the owning Robolectric 4.14.1
+# runtime's exact API 35 instrumented Android jar.
+single_version_override(
+    module_name = "rules_robolectric",
+    version = "4.16.1",
+    patches = ["//scripts/bazel:rules-robolectric-api-35.patch"],
+    patch_strip = 1,
+)
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.12")

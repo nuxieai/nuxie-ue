@@ -24,3 +24,5 @@ exports_files(["Bridge.plist"])
 exports_files(["locks/bridge_maven_install.json"])
 
 exports_files(["rules-kotlin-2.0-adapter.patch", "rules-android-min-sdk-23.patch"])
+
+exports_files(["rules-robolectric-api-35.patch"])
