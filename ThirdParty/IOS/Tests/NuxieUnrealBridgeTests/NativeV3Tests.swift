@@ -49,10 +49,19 @@ final class NativeV3Tests: XCTestCase {
     let apiKey = "pk_test_wrapper_\(UUID().uuidString)"
     NativeV3Transport.reset(profile, apiKey: apiKey)
     XCTAssertTrue(URLProtocol.registerClass(NativeV3Transport.self))
-    setenv("NUXIE_UNREAL_API_ENDPOINT", "https://wrapper-v3-api.nuxie.test", 1)
-    defer { URLProtocol.unregisterClass(NativeV3Transport.self); unsetenv("NUXIE_UNREAL_API_ENDPOINT") }
+
+    defer { URLProtocol.unregisterClass(NativeV3Transport.self) }
     let nativeLogs = try OSLogStore(scope: .currentProcessIdentifier)
     let logPosition = nativeLogs.position(date: Date())
+    defer {
+      let entries = try? nativeLogs.getEntries(at: logPosition)
+      for entry in entries ?? [] {
+        if let entry = entry as? OSLogEntryLog, entry.subsystem == "io.nuxie.sdk" {
+          print("NATIVE_V3_NATIVE_LOG vector=\(vector) message=\(entry.composedMessage)")
+        }
+      }
+      print("NATIVE_V3_TRANSPORT vector=\(vector) offeredHosts=\(NativeV3Transport.offeredHosts)")
+    }
     let bridge = NuxieUnrealRuntime()
     var emitted: [[String: Any]] = []
     bridge.emit = { value in
@@ -171,14 +180,19 @@ private final class NativeV3Transport: URLProtocol, @unchecked Sendable {
   nonisolated(unsafe) private static var customers: [String] = []
   nonisolated(unsafe) private static var captured: [[String: Any]] = []
   nonisolated(unsafe) private static var failures: [String] = []
+  nonisolated(unsafe) private static var hosts: Set<String> = []
   static func reset(_ data: Data, apiKey: String) {
-    lock.withLock { profile = data; expectedApiKey = apiKey; customers = []; captured = []; failures = [] }
+    lock.withLock { profile = data; expectedApiKey = apiKey; customers = []; captured = []; failures = []; hosts = [] }
   }
   static var profileRequests: Int { lock.withLock { customers.count } }
   static var profileCustomers: [String] { lock.withLock { customers } }
   static var events: [[String: Any]] { lock.withLock { captured } }
   static var violations: [String] { lock.withLock { failures } }
-  override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "wrapper-v3-api.nuxie.test" }
+  static var offeredHosts: [String] { lock.withLock { hosts.sorted() } }
+  override class func canInit(with request: URLRequest) -> Bool {
+    if let host = request.url?.host { lock.withLock { _ = hosts.insert(host) } }
+    return request.url?.host == "wrapper-v3-api.nuxie.test"
+  }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func stopLoading() {}
   private func fail(_ message: String) {
