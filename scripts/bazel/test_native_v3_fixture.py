@@ -160,7 +160,18 @@ class FixtureTests(unittest.TestCase):
             if accepted:
                 for activity in ('journey_started', 'journey_completed'):
                     properties = dict(expected, journey_id=journey_id)
-                    activities.append({'name': activity, 'properties': properties})
+                    # Unreal's public FNuxieScalar wire uses typed envelopes;
+                    # signed integers are decimal strings, never JSON numbers.
+                    activity_properties = {
+                        'experience_id': {'kind': 'string', 'value': expected['experience_id']},
+                        'experience_version': {'kind': 'string', 'value': expected['experience_version']},
+                        'leg_id': {'kind': 'string', 'value': expected['leg_id']},
+                        'leg_generation': {'kind': 'integer', 'value': '0'},
+                        'journey_id': {'kind': 'string', 'value': journey_id},
+                    }
+                    if activity == 'journey_completed':
+                        activity_properties['outcome'] = {'kind': 'string', 'value': 'continue'}
+                    activities.append({'schemaVersion': 1, 'name': activity, 'properties': activity_properties})
                     native_properties = dict(properties)
                     native_properties['experience_version_id'] = native_properties.pop('experience_version')
                     if activity == 'journey_completed':
@@ -210,6 +221,30 @@ class FixtureTests(unittest.TestCase):
         mutations.append(wrong_identity)
         for case in mutations:
             with self.subTest(case=case):
+                self.fixture.ledger['cases'][0] = case
+                with self.assertRaises(ValueError):
+                    self.fixture.verify()
+
+    def test_unreal_typed_activity_rejects_wrong_kinds_and_noncanonical_integer_values(self):
+        cases = self.reference_ledger()
+        self.assertEqual(len(self.fixture.verify()), 4)
+        accepted = copy.deepcopy(cases[0])
+        for scalar in [0, {'kind': 'number', 'value': 0}, {'kind': 'integer', 'value': 0},
+                       {'kind': 'integer', 'value': True}, {'kind': 'integer', 'value': '00'},
+                       {'kind': 'integer', 'value': '-0'},
+                       {'kind': 'integer', 'value': '9223372036854775808'},
+                       {'kind': 'integer', 'value': '0', 'unexpected': True}]:
+            with self.subTest(scalar=scalar):
+                case = copy.deepcopy(accepted)
+                case['observation']['activities'][0]['properties']['leg_generation'] = scalar
+                self.fixture.ledger['cases'][0] = case
+                with self.assertRaises(ValueError):
+                    self.fixture.verify()
+        for scalar in [{'kind': 'integer', 'value': accepted['observation']['activities'][0]['properties']['journey_id']['value']},
+                       {'kind': 'string', 'value': 4288}]:
+            with self.subTest(scalar=scalar):
+                case = copy.deepcopy(accepted)
+                case['observation']['activities'][0]['properties']['journey_id'] = scalar
                 self.fixture.ledger['cases'][0] = case
                 with self.assertRaises(ValueError):
                     self.fixture.verify()
