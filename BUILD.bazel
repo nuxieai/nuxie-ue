@@ -128,7 +128,6 @@ ios_application(
     name = "native_v3_test_host",
     testonly = True,
     bundle_id = "ai.nuxie.unreal.native-v3-tests",
-    bundle_name = "NativeV3TestHost",
     deps = [":native_v3_test_host_library"],
     families = ["iphone", "ipad"],
     infoplists = ["ThirdParty/IOS/TestHost/Info.plist"],
