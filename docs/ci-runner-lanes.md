@@ -18,6 +18,16 @@ inventory before consumption. An invalid receipt fails instead of silently
 rebuilding another platform. The canonical `python3 scripts/check.py` still
 includes licensed UE 5.8 editor and full consumer qualification.
 
+Before policy v2 starts a pinned producer, it requires the exact upstream
+repository/revision and complete executing frontend inventory in the fixed
+root-issued `/etc/nuxie/buildkite-native-producer-qualifications.json` (Linux)
+or `/Library/NuxieBuildkite/native-producer-qualifications.json` (Mac). These
+qualifications bind the admitted platform/profile/capability and exact tracked
+Git bytes. Missing approval fails before checkout or native preparation; modified
+or untracked controls fail before execution. The consumer never issues a
+qualification or repins an upstream migration. Legacy canonical checks retain
+their original commands; separate real native canaries are required for v2.
+
 Policy v2 uses `linux-14g-v2` and `mac-64g-v2` capabilities with `linux-portable`,
 `linux-native` and `macos-apple` profiles. Physical-host concurrency groups use
 an eager limit of one. The installed root-controlled helper admits job/cache
