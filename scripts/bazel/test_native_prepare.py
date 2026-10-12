@@ -54,6 +54,17 @@ out.mkdir(parents=True, exist_ok=True)
         self.assertIn(str(output), args)
         self.assertFalse((self.upstream / '.native').exists())
 
+    def test_android_linux_preparation_never_opens_the_apple_checkout(self):
+        (self.root / 'NATIVE-PINS.json').write_text(json.dumps({
+            'android': self.pin,
+            'ios': {'repository': str(self.root / 'forbidden-apple-source'), 'revision': '0' * 40},
+        }))
+        with patch('native_prepare.sys.platform', 'linux'):
+            selected = prepare(self.root, ['android'])
+        self.assertEqual(set(selected), {'android'})
+        self.assertFalse((self.root / '.native/ios').exists())
+        self.assertTrue((self.root / '.native/artifacts/android/invocation.json').is_file())
+
     def test_modified_native_source_is_preserved(self):
         (self.root / '.native').mkdir()
         source, _ = checkout(self.root, 'android', self.pin)

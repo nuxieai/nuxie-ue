@@ -1,0 +1,24 @@
+{
+  "env": {
+    "CI": "1"
+  },
+  "steps": [
+    {
+      "label": ":unreal: Direct portable contracts",
+      "command": "set -euo pipefail\nsource scripts/bazel/ci-cache.sh\nexport NUXIE_BAZEL_JOBS=2\npython3 scripts/bazel/sdk.py test\n",
+      "agents": {
+        "queue": "nuxie-pr"
+      },
+      "timeout_in_minutes": 30
+    },
+    {
+      "label": ":apple: Direct Unreal native bridges",
+      "command": "set -euo pipefail\nsource scripts/bazel/ci-cache.sh\nexport NUXIE_BAZEL_JOBS=2\nexport JAVA_HOME=\"${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}\"\nexport ANDROID_HOME=\"${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}\"\nexport ANDROID_SDK_ROOT=\"$ANDROID_HOME\"\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\n\"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager\" \\\n  \"platforms;android-36\" \"build-tools;36.0.0\" \"ndk;29.0.14206865\" \\\n  \"cmake;3.22.1\"\npython3 scripts/bazel/sdk.py test-android\npython3 scripts/prepare-android.py\npython3 scripts/bazel/ios_simulator.py --minimum-os 17.0 -- python3 scripts/bazel/sdk.py test-ios\nbash ThirdParty/IOS/scripts/build-framework.sh\n",
+      "agents": {
+        "queue": "nuxie-pr",
+        "nuxie-platform": "macos"
+      },
+      "timeout_in_minutes": 120
+    }
+  ]
+}
