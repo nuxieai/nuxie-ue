@@ -31,6 +31,12 @@ final class NativeV3Tests: XCTestCase {
   private func json(_ value: Any) throws -> String {
     String(decoding: try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), as: UTF8.self)
   }
+  private func activityString(_ properties: [String: Any], _ field: String) throws -> String {
+    let scalar = try XCTUnwrap(properties[field] as? [String: Any])
+    XCTAssertEqual(Set(scalar.keys), Set(["kind", "value"]))
+    XCTAssertEqual(scalar["kind"] as? String, "string")
+    return try XCTUnwrap(scalar["value"] as? String)
+  }
   private func wait(_ label: String, _ condition: () async throws -> Bool) async throws {
     let deadline = Date().addingTimeInterval(20)
     var satisfied = try await condition()
@@ -128,19 +134,23 @@ final class NativeV3Tests: XCTestCase {
       if accepted {
         XCTAssertEqual(journeys.compactMap { $0["name"] as? String }, ["journey_started", "journey_completed"])
         let properties = try journeys.map { try XCTUnwrap($0["properties"] as? [String: Any]) }
+        for activity in journeys { XCTAssertEqual(activity["schemaVersion"] as? Int, 1) }
         for item in properties {
-          XCTAssertEqual(item["experience_id"] as? String, "experience_wrapper_v3")
-          XCTAssertEqual(item["experience_version"] as? String, "version_wrapper_v3")
-          XCTAssertEqual(item["leg_id"] as? String, String(repeating: "a", count: 64))
-          XCTAssertEqual(item["leg_generation"] as? Int, 0)
-          XCTAssertNotNil(UUID(uuidString: try XCTUnwrap(item["journey_id"] as? String)))
+          XCTAssertEqual(try activityString(item, "experience_id"), "experience_wrapper_v3")
+          XCTAssertEqual(try activityString(item, "experience_version"), "version_wrapper_v3")
+          XCTAssertEqual(try activityString(item, "leg_id"), String(repeating: "a", count: 64))
+          XCTAssertEqual(try json(XCTUnwrap(item["leg_generation"] as? [String: Any])),
+                         try json(["kind": "integer", "value": "0"]))
+          XCTAssertNotNil(UUID(uuidString: try activityString(item, "journey_id")))
         }
-        XCTAssertEqual(properties.first?["journey_id"] as? String, properties.last?["journey_id"] as? String)
-        XCTAssertEqual(properties.last?["outcome"] as? String, "continue")
+        let journeyId = try activityString(XCTUnwrap(properties.first), "journey_id")
+        let completedProperties = try XCTUnwrap(properties.last)
+        XCTAssertEqual(journeyId, try activityString(completedProperties, "journey_id"))
+        XCTAssertEqual(try activityString(completedProperties, "outcome"), "continue")
         XCTAssertEqual(nativeJourneys.compactMap { $0["event"] as? String }, ["$journey_leg_started", "$journey_leg_completed"])
         for item in nativeJourneys {
           let context = try XCTUnwrap(item["properties"] as? [String: Any])
-          XCTAssertEqual(context["journey_id"] as? String, properties.last?["journey_id"] as? String)
+          XCTAssertEqual(context["journey_id"] as? String, journeyId)
           XCTAssertEqual(context["experience_id"] as? String, "experience_wrapper_v3")
           XCTAssertEqual(context["experience_version_id"] as? String, "version_wrapper_v3")
           XCTAssertEqual(context["leg_id"] as? String, String(repeating: "a", count: 64))
@@ -151,7 +161,7 @@ final class NativeV3Tests: XCTestCase {
         let nativeProperties = try XCTUnwrap(completion["properties"] as? [String: Any])
         let outputs = try XCTUnwrap(nativeProperties["outputs"] as? [String: Any])
         XCTAssertEqual(try json(outputs), try json(["event": values, "responses": [:]] as [String: Any]))
-        XCTAssertEqual(nativeProperties["journey_id"] as? String, properties.last?["journey_id"] as? String)
+        XCTAssertEqual(nativeProperties["journey_id"] as? String, journeyId)
         XCTAssertEqual(nativeProperties["outcome"] as? String, "continue")
       } else {
         XCTAssertEqual(NuxieSDK.shared.features.state, .unknown, "Rejected profile must not publish authoritative access")

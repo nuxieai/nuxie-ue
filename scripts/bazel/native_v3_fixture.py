@@ -69,6 +69,43 @@ def json_integer(value):
     return type(value) is int or (type(value) is float and math.isfinite(value) and value == int(value))
 
 
+def unreal_activity_properties(activity):
+    """Validate Unreal's public scalar wire without replacing the raw observation."""
+    require(type(activity.get('schemaVersion')) is int and activity['schemaVersion'] == 1,
+            'Actual Unreal activity schema differs')
+    properties = activity.get('properties')
+    require(isinstance(properties, dict), 'Actual Unreal activity properties are missing')
+    kinds = {'journey_id': 'string', 'experience_id': 'string', 'experience_version': 'string',
+             'leg_id': 'string', 'leg_generation': 'integer', 'outcome': 'string'}
+    required = set(kinds) - {'outcome'}
+    if activity['name'] == 'journey_completed':
+        required.add('outcome')
+    require(required.issubset(properties), 'Actual Unreal activity context is missing')
+    decoded = {}
+    for field, scalar in properties.items():
+        require(isinstance(scalar, dict) and scalar.keys() == {'kind', 'value'},
+                'Actual Unreal scalar envelope differs: ' + field)
+        kind, value = scalar['kind'], scalar['value']
+        if field in kinds:
+            require(kind == kinds[field], 'Actual Unreal scalar kind differs: ' + field)
+        if kind == 'string':
+            require(type(value) is str, 'Unreal string scalar must contain a string')
+        elif kind == 'integer':
+            require(type(value) is str and re.fullmatch(r'0|-?[1-9][0-9]*', value) is not None,
+                    'Unreal integer scalar must contain a canonical decimal string')
+            value = int(value)
+            require(-(2 ** 63) <= value < 2 ** 63, 'Unreal integer scalar is outside signed 64-bit bounds')
+        elif kind == 'number':
+            require(type(value) in (int, float) and math.isfinite(value),
+                    'Unreal number scalar must contain a finite JSON number')
+        elif kind == 'boolean':
+            require(type(value) is bool, 'Unreal Boolean scalar must contain a Boolean')
+        else:
+            raise ValueError('Unknown Unreal scalar kind')
+        decoded[field] = value
+    return decoded
+
+
 class NativeV3Fixture:
     """Serve original signed bytes; observations never replace native behavior."""
 
@@ -190,13 +227,14 @@ class NativeV3Fixture:
                         'Actual adapter Journey activity order/count differs')
                 require([row['event'] for row in journeys] == ['$journey_leg_started', '$journey_leg_completed'],
                         'Actual native Journey event order/count differs')
-                journey_id = activities[0]['properties']['journey_id']
+                activity_properties = [unreal_activity_properties(row) for row in activities]
+                journey_id = activity_properties[0]['journey_id']
                 uuid.UUID(journey_id)
                 expected = self.manifest['expectedProperties']
-                for row in activities:
-                    require(row['properties']['journey_id'] == journey_id, 'Adapter Journey identity changed')
+                for properties in activity_properties:
+                    require(properties['journey_id'] == journey_id, 'Adapter Journey identity changed')
                     for field in ('experience_id', 'experience_version', 'leg_id', 'leg_generation'):
-                        require(typed_equal(row['properties'].get(field), expected[field]),
+                        require(typed_equal(properties.get(field), expected[field]),
                                 'Actual adapter Journey context differs: ' + field)
                 for row in journeys:
                     require(row['properties']['journey_id'] == journey_id, 'Native and adapter Journey identity differs')
@@ -205,7 +243,7 @@ class NativeV3Fixture:
                         require(typed_equal(row['properties'].get(wire_field), expected[field]),
                                 'Actual native Journey context differs: ' + wire_field)
                 require(len({row['idempotency_key'] for row in journeys}) == 2, 'Native Journey idempotency keys differ')
-                require(activities[-1]['properties'].get('outcome') == expected['outcome']
+                require(activity_properties[-1].get('outcome') == expected['outcome']
                         and journeys[-1]['properties'].get('outcome') == expected['outcome'],
                         'Actual native and adapter completion outcomes differ')
                 require(typed_equal(journeys[-1]['properties'].get('outputs'), self.manifest['expectedOutputs']),
