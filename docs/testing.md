@@ -8,50 +8,96 @@ This migration selects iOS
 `2e4c39929b397c808da0b9eefe4741aa83f8a4d0`
 ([Android PR #191](https://github.com/nuxieai/nuxie-android/pull/191)) for
 [UNIV-4288](https://universe.basis.dev/issue/UNIV-4288).
-`NATIVE-PINS.json` selects these inputs. Native product receipts must retain
-their exact clean producer revisions; an earlier product cannot be relabeled.
-Bazel compile actions share the existing host caches across worktrees, while
-compiler outputs, staged products and fixture evidence remain checkout-owned.
+`NATIVE-PINS.json` selects these inputs. Android consumes the source-addressed
+Maven version `0.2.0-2e4c39929b397c808da0b9eefe4741aa83f8a4d0`, including
+Browser 1.8.0 from the original native POM. Native product receipts retain their
+exact clean producer revisions. Bazel action and repository caches remain
+shared across worktrees; compiler outputs, prepared products and fixture
+sessions remain isolated by checkout.
 
-The native v3 test target runs the shipped Swift adapter in a test-only UIKit
-app with scene lifecycle support, against four reproducible, genuinely signed
-profiles over a private loopback HTTP server.
-It requires accepted v3 admission, ordered adapter and native Journey events,
+The native integration target drives the shipped Swift adapter through four
+reproducible signed profiles over a private loopback HTTP server. A scene-capable,
+test-only UIKit host retains the native unified-log authentication oracle.
+The accepted v3 case checks ordered public Journey activity and native ingest,
 matching identities and completion outcome, and exact number/string/Boolean
-run outputs. Retired v1/v2 schemas and a v3 descriptor signed under the retired
-domain require a concrete native authentication failure after the identified
-profile response completes. Live event transport and successful shutdown are
-required for every case. Test results execute afresh even when compilation
-reuses cached actions. The fixture generator, original native wire golden and
-independent verifier are tracked alongside the harness.
+run outputs. Unreal's public activity properties remain typed `{kind, value}`
+envelopes; the independent verifier validates their kinds and canonical signed
+integer strings before comparing them with the plain native ingest properties.
+Raw observations are preserved. Retired v1/v2 schemas and a v3 descriptor signed
+under the retired domain each require a concrete native authentication failure
+after the identified profile response completes. The native error class is
+visible; its private reason is redacted. Per-case PID and event timestamps,
+all 45 event-transport control indexes, actual Feature state and successful
+shutdown are required. Test results execute afresh even when compilation reuses
+cached actions. The deterministic fixture generator, native encoder golden and
+independent verifier are tracked with the harness.
 
-These tests cover screenless native adapter sessions and their public event
-boundary. They do not establish rendered form editing, native text-input UI,
-Android JNI Journey execution, or an engine player. The historical native v2
-results below do not qualify these v3 pins. Actual v3 gate counts, original
-native receipts and prepared artifact hashes will be recorded separately after
-the current native consumer checks complete.
+### Available checks and original results
+
+The following commands passed on October 11–12, 2026:
+
+- `python3 scripts/bazel/sdk.py test`: both portable targets executed freshly, including the C++ request ledger with ASan/UBSan and the Python receipt test.
+- `python3 scripts/bazel/sdk.py test-android`: all nine actual JUnit/Robolectric bridge tests passed with zero failures, errors or skips. Native compiler imports match the original source-addressed AAR.
+- `python3 scripts/prepare-android.py`: Release bridge AAR and native Maven publication passed; all 29 receipt inputs, 26 artifacts, 25 native Maven files and copied license matched their original inventories.
+- `python3 scripts/bazel/ios_simulator.py --minimum-os 17.0 -- python3 scripts/bazel/sdk.py test-ios`: all ten existing XCTest functions and all four signed-profile cases passed with zero failures on a newly created default iOS 27 / iPhone SE (3rd generation) lease. Accepted Journey activity and native ingest have the same UUID and typed output projection; all three rejected inputs have a native authentication-class error. The helper's device was deleted after the command and both observed helper and SDK child process groups closed.
+- `NUXIE_IOS_BUILD_CONFIGURATION=Debug bash ThirdParty/IOS/scripts/build-framework.sh` and the same command with `Release`: both configurations passed for device arm64 and simulator arm64/x86_64. Each published XCFramework has 27 files matching the original compiled archive; both embedded ZIPs and owning receipts passed. The exact original Debug and Release native imports and resources are retained separately.
+- `python3 -B -m unittest discover -v -s scripts/bazel -p 'test_*.py'`: all 57 helper tests passed with zero skips, including both real Mach-O compiler tests and strict typed-activity mutation controls.
+
+Portable, Android and Debug results were compiled on
+`30f5a5a4679b5e8fdc1e9c037f9f6aa3c775f7d5`; their production and portable inputs
+are unchanged at `20fb0540dbeffbb38b6ec0ef0d3cd2ed2fad13b0`. The latter source
+contains only a strict test-oracle repair and is the actual passing source for
+the full 57 helpers, iOS fourteen-case run and Release framework. Final
+validation documentation is excluded from compiler and receipt input inventories;
+its source closure uses exact input equivalence rather than invented reruns.
+Original commands, test XML, raw profiles and events, native logs, binaries,
+producer receipts and configuration products are retained outside regenerable
+outputs in the qualification capsule for the linked issue.
+
+The first signed-profile run on `30f5a5a` exited 1 because the new test incorrectly
+read Unreal's existing typed activity envelopes as plain scalars. Its original
+XCTest failures remain retained. The test-only repair at `20fb054` preserves
+production serialization and all fixed identity, output, authentication and
+teardown expectations; the fresh run above passes. Local qualification controller
+attempts also retained bounded host process/device metadata timeouts with no
+fresh native test verdict. An unobserved child or empty log is not evidence that
+no SDK action ever started. Those infrastructure records do not replace the
+passing native run.
+
+`python3 scripts/check.py` exited 1 at the licensed UE 5.8 Editor prerequisite,
+before its build commands. The project owner explicitly authorized skipping
+licensed editor/player checks. The full owning command is not reported as a pass;
+its available commands are qualified separately above. UBT/UHT, Unreal automation,
+RunUAT BuildPlugin packaging and a rendered Unreal player remain unqualified.
+These native results cover screenless adapter sessions and available public
+activity/run-output boundaries. They do not establish form editing, native
+text-input UI, Android JNI Journey execution or device/store behavior. Historical
+native v2 and older evidence below remains limited to the revisions it names.
 
 ### Selecting the local simulator
 
-On this host, the identical compiled OSLog marker and capture command produced
-an exact PID/timestamp event on iOS 26.5 and no events on the tested iOS 27
-devices. This local runtime/device comparison is tracked in
-[UNIV-4333](https://universe.basis.dev/issue/UNIV-4333). It does not establish an
-Apple-wide defect. The normal helper still chooses the latest available runtime;
-on this host that default cannot satisfy the required log-readiness oracle.
-
-Select an owned, already booted iOS 26.5 simulator using the existing caller
-lease option before running the native gate:
+The canonical helper chooses the latest available iOS runtime and owns shutdown
+and deletion of its fresh lease. The hosted Unreal v3 target passed on that
+existing default path with iOS 27. An already booted caller device can instead
+be selected through the existing option:
 
 ```sh
 NUXIE_IOS_SIMULATOR_ID=YOUR_BOOTED_DEVICE_UUID python3 scripts/bazel/sdk.py test-ios
 ```
 
-The caller owns shutdown and preserves its device. The helper deletes only
-simulators it creates itself. Authentication, PID/time scoping, signed-profile
-verification and the event oracle remain unchanged. Qualification records must
-include the exact selected UUID, runtime, command and original result.
+The caller owns shutdown and preserves its device. Authentication, exact
+PID/time scoping and signed-profile verification stay required. Qualification
+records include the selected UUID, runtime, original command and result.
+
+A paired same-binary control found that the pinned logic-test launcher uses
+`simctl spawn -s`, which disables the marker's OSLog emission on the tested
+caller. The test-only hosted target avoids that launch context without changing
+the native SDK or global runner. Earlier standalone runtime/device observations
+remain tracked separately in [UNIV-4333](https://universe.basis.dev/issue/UNIV-4333);
+they do not contradict this hosted XCTest result or establish an Apple-wide defect.
+The optional legacy Gradle helper's Maven path inconsistency is separate work in
+[UNIV-4362](https://universe.basis.dev/issue/UNIV-4362). This migration uses the
+canonical Bazel Android commands above.
 
 ## Previous native v2 Bazel build migration
 
