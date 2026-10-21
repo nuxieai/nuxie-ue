@@ -4,7 +4,7 @@ Native Experiences, purchases, and feature access for mobile games. Use Blueprin
 
 Configure once. Keep the client across maps. Observe access as it changes, spend with an authoritative receipt, and let published Experiences call back into your game.
 
-**0.3 is a complete replacement of the old API.** There are no compatibility aliases. One runtime module, one game-instance subsystem, typed asynchronous results, and the same native SDKs used by Nuxie's iOS and Android integrations.
+One runtime module, one game-instance subsystem, typed asynchronous results, and the native SDKs used by Nuxie's iOS and Android integrations.
 
 ## Start here
 
@@ -20,7 +20,7 @@ The target engine is **UE 5.8**, locally qualified on **5.8.2** with iOS and And
 
 ### Install the plugin
 
-Place the prepared plugin in your project's `Plugins/Nuxie` directory:
+Download [`nuxie-ue-1.0.0.zip`](https://github.com/nuxieai/nuxie-ue/releases/download/v1.0.0/nuxie-ue-1.0.0.zip) and place the prepared plugin in your project's `Plugins/Nuxie` directory:
 
 ```text
 MyGame/
