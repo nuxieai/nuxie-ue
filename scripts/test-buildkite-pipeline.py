@@ -28,9 +28,13 @@ class PipelineTests(unittest.TestCase):
             recorder = root / 'record.py'
             recorder.write_text('import json, os, sys\nwith open(os.environ["CALLS"], "a") as log: log.write(json.dumps(sys.argv[1:]) + "\\n")\n')
             calls = root / 'calls.jsonl'
+            sdkmanager = root / 'android/cmdline-tools/latest/bin/sdkmanager'
+            sdkmanager.parent.mkdir(parents=True)
+            sdkmanager.write_text('#!' + sys.executable + '\n' + recorder.read_text())
+            sdkmanager.chmod(0o755)
             functions = 'record() { "$REAL_PYTHON" "$RECORDER" "$@"; }\npython3() { record python3 "$@"; }\nbash() { record bash "$@"; }\n'
             subprocess.run(['/bin/bash', '-c', functions + step['command']], cwd=root,
-                           env={**os.environ, 'REAL_PYTHON': sys.executable, 'RECORDER': str(recorder), 'CALLS': str(calls)},
+                           env={**os.environ, 'REAL_PYTHON': sys.executable, 'RECORDER': str(recorder), 'CALLS': str(calls), 'ANDROID_HOME': str(root / 'android')},
                            check=True, timeout=10)
             return [json.loads(line) for line in calls.read_text().splitlines()]
 
@@ -63,6 +67,23 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(steps[0]['env']['NUXIE_CI_RUNNER_PROFILE'], 'linux-portable')
         self.assertEqual(steps[1]['env']['NUXIE_CI_RUNNER_PROFILE'], 'linux-native')
         self.assertEqual(steps[2]['env']['NUXIE_CI_RUNNER_PROFILE'], 'macos-apple')
+
+    def test_engine_release_check_executes_full_gate_and_packager_on_serialized_mac(self):
+        for split in ('0', '1'):
+            steps = pipeline({'NUXIE_CI_RUNNER_POLICY_VERSION': '2',
+                              'NUXIE_SDK_SPLIT_LANES': split,
+                              'NUXIE_SDK_ENGINE_CHECK': '1'})['steps']
+            apple = steps[-1]
+            self.assertEqual(apple['agents']['nuxie-platform'], 'macos')
+            self.assertEqual(apple['concurrency_group'], 'nuxie/physical/mac-m2')
+            self.assertEqual(self.execute(apple)[-2:], [
+                ['python3', 'scripts/check.py'],
+                ['python3', 'scripts/package.py', '--output', 'dist/release-package'],
+            ])
+            self.assertIn('dist/check-report/**/*', apple['artifact_paths'])
+            self.assertIn('dist/release-package/**/*', apple['artifact_paths'])
+        with self.assertRaises(ValueError):
+            pipeline({'NUXIE_SDK_ENGINE_CHECK': 'yes'})
 
     def test_half_activated_or_unknown_settings_fail_closed(self):
         for environment in ({'NUXIE_SDK_SPLIT_LANES': '1'}, {'NUXIE_CI_RUNNER_POLICY_VERSION': '3'},

@@ -252,3 +252,13 @@ Native revisions and the bridge contract are pinned in `NATIVE-PINS.json`. Build
 ## License
 
 The Unreal SDK is licensed under the [MIT License](LICENSE). Bundled native SDKs and third-party components retain their respective licenses in [ThirdParty/Notices](ThirdParty/Notices).
+
+### Release checks on Buildkite
+
+Set `NUXIE_SDK_ENGINE_CHECK=1` on an attended build to run the full engine check
+on the remote Mac and retain its reports and package as Buildkite artifacts.
+The job uses the existing Mac concurrency limit; portable and Android work can
+use Linux with the already qualified split lanes.
+
+The Mac needs Unreal Engine 5.8 with its mobile components. Set
+`UNREAL_ENGINE_ROOT` if it is installed outside `/Users/Shared/Epic Games/UE_5.8`.
