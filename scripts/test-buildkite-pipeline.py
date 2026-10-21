@@ -77,7 +77,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(apple['agents']['nuxie-platform'], 'macos')
             self.assertEqual(apple['concurrency_group'], 'nuxie/physical/mac-m2')
             self.assertEqual(self.execute(apple)[-2:], [
-                ['python3', 'scripts/check.py'],
+                ['python3', 'scripts/bazel/ios_simulator.py', '--minimum-os', '17.0', '--', 'python3', 'scripts/check.py'],
                 ['python3', 'scripts/package.py', '--output', 'dist/release-package'],
             ])
             self.assertIn('dist/check-report/**/*', apple['artifact_paths'])
