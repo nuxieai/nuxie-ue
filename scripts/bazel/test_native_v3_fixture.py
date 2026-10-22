@@ -93,6 +93,19 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(len(self.fixture.ledger['cases']), 1)
         self.assertFalse(self.fixture.active['profiles'])
 
+    def test_current_native_profile_service_authentication_failure_is_observed(self):
+        # Captured from the pinned SDK's real identified-profile error site.
+        row = {'timestamp': '2026-10-21 18:30:52.462672-0700', 'processID': 17633,
+               'subsystem': 'io.nuxie.sdk', 'category': 'NuxieSDK',
+               'eventMessage': '[Nuxie] [DEBUG] [ProfileService.swift:48] Profile refresh failed: '
+                               '<redacted:error=JourneyReleaseAuthenticationError hmac-sha256:8ae9739d43e4b405>'}
+        self.assertTrue(terminal_authentication_failure(row, 17633, 1792632652.448029))
+        for mutation in [dict(row, processID=17634),
+                         dict(row, eventMessage=row['eventMessage'].replace('ProfileService.swift', 'OtherService.swift')),
+                         dict(row, eventMessage=row['eventMessage'].replace('JourneyReleaseAuthenticationError', 'URLError'))]:
+            with self.subTest(row=mutation):
+                self.assertFalse(terminal_authentication_failure(mutation, 17633, 1792632652.448029))
+
     def test_authentication_oracle_rejects_wrong_pid_prior_event_time_and_generic_network_error(self):
         now = time.time()
         row = {'timestamp': datetime.fromtimestamp(now, timezone.utc).isoformat(), 'processID': 4288,
