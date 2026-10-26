@@ -5,6 +5,10 @@ import json
 import os
 import subprocess
 
+from pool import dispatch
+status = dispatch('check', [])
+if status is not None: raise SystemExit(status)
+
 root = Path(__file__).resolve().parent.parent
 engine = Path(os.environ.get('UNREAL_ENGINE_ROOT', '/Users/Shared/Epic Games/UE_5.8'))
 editor = engine / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -21,7 +25,7 @@ def run(args, cwd=root, env=None):
 
 run(['python3', root / 'scripts/bazel/sdk.py', 'test'])
 run(['python3', root / 'scripts/link-example.py'])
-run([build, 'NuxieLabEditor', 'Mac', 'Development', '-Project=' + str(project), '-architecture=arm64', '-NoHotReload', '-NoUBA'])
+run([build, 'NuxieLabEditor', 'Mac', 'Development', '-Project=' + str(project), '-architecture=arm64', '-NoHotReload', '-NoUBA', '-MaxParallelActions=' + os.environ.get('NUXIE_BAZEL_CPU', '4')])
 report = root / 'dist/check-report'
 report.mkdir(parents=True, exist_ok=True)
 index = report / 'index.json'

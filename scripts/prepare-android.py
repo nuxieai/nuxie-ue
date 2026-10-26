@@ -4,6 +4,11 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import sys
+from pool import dispatch
+status = dispatch('prepare-android', sys.argv[1:])
+if status is not None: raise SystemExit(status)
+
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root / 'scripts/bazel'))
 from sdk import android_build, copy_maven
