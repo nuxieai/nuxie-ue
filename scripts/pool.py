@@ -9,11 +9,15 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = 'ue'
-OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', 'ThirdParty/Android/maven', 'ThirdParty/Android/lib', 'ThirdParty/IOS/lib', '.native/xcframework', '.native/licenses']
+OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', 'ThirdParty/Android/maven', 'ThirdParty/Android/lib', 'ThirdParty/IOS/lib', 'ThirdParty/Android/bridge/build/outputs', 'ThirdParty/Android/bridge/build/reports', 'ThirdParty/Android/bridge/build/test-results', '.native/xcframework', '.native/licenses']
 
 
 def option(arguments, name):
-    return next((arguments[i + 1] for i, value in enumerate(arguments[:-1]) if value == name), None) or next((value.split('=', 1)[1] for value in arguments if value.startswith(name + '=')), None)
+    selected = None
+    for index, value in enumerate(arguments):
+        if value == name and index + 1 < len(arguments): selected = arguments[index + 1]
+        elif value.startswith(name + '='): selected = value.split('=', 1)[1]
+    return selected
 
 
 def selection(mode, arguments, command=None, selected_platform=None):
@@ -21,6 +25,9 @@ def selection(mode, arguments, command=None, selected_platform=None):
     for i, arg in enumerate(arguments):
         if arg == '--platform' and i + 1 < len(arguments): selected = arguments[i + 1]
         elif arg.startswith('--platform='): selected = arg.split('=', 1)[1]
+    if mode == 'package':
+        platforms = set((option(arguments, '--platforms') or 'IOS+Android+Mac').split('+'))
+        selected = 'all' if 'Android' in platforms and 'IOS' in platforms else 'android' if 'Android' in platforms else 'ios' if 'IOS' in platforms else 'portable'
     if selected_platform is not None: selected = selected_platform
     command = command or (arguments[0] if arguments else '')
     requirements = set()
@@ -51,10 +58,13 @@ def selection(mode, arguments, command=None, selected_platform=None):
     if (mode == 'gradle' or (mode == 'check' and SDK != 'ue' and 'android' in requirements)
             or (SDK == 'android' and mode == 'sdk' and command in ('check', 'lint', 'api-check', 'providers'))):
         requirements.add('java17')
+    if mode == 'test-android-bridge':
+        apple = False; requirements = {'android', 'java17'}
     if mode == 'check-android-blueprint':
         serial = option(arguments, '--serial')
         if not serial: raise ValueError('Android device serial is required')
         apple = False; requirements = {'android', 'android-device@' + serial}
+    if mode == 'package': apple = True  # This frontend invokes Unreal's Mac BuildPlugin tool.
     if apple: requirements.add('xcode')
     return ('macos' if apple else 'portable'), sorted(requirements)
 
@@ -83,6 +93,9 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             elif argument.startswith('--output='): args[index] = '--output=' + str(Path(output).resolve())
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
+    if mode == 'test-android-bridge':
+        selected = ROOT / 'ThirdParty/Android/maven'
+        if selected.is_dir(): input_files = {'ThirdParty/Android/maven': selected, **(input_files or {})}
     if mode == 'package':
         input_files = dict(input_files or {})
         for name in ('ThirdParty/Android/lib', 'ThirdParty/Android/maven', 'ThirdParty/IOS/lib', 'ThirdParty/Notices'):
@@ -104,8 +117,8 @@ def main():
     mode, *arguments = sys.argv[1:]
     status = dispatch(mode, arguments)
     if status is not None: return status
-    if mode == 'gradle':
-        command = [str(ROOT / 'gradlew'), *arguments, '--no-daemon', '--max-workers=' + os.environ.get('NUXIE_BAZEL_CPU', '2')]
+    if mode == 'test-android-bridge':
+        command = ['bash', 'scripts/test-android-bridge.sh', *arguments]
     elif SDK == 'react-native' and mode == 'check':
         # Dependencies belong to the selected host's disposable snapshot.
         subprocess.run(['pnpm', '--ignore-workspace', 'install', '--frozen-lockfile'], cwd=ROOT, check=True)
