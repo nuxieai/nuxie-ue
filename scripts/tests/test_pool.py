@@ -14,12 +14,15 @@ class PoolRoutingTests(unittest.TestCase):
         import json
         with tempfile.TemporaryDirectory() as temp:
             home=Path(temp);root=home/'checkout';(root/'.native/maven').mkdir(parents=True)
+            alternative=home/'override';alternative.mkdir()
             helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True)
             record=home/'record.json'
-            helper.write_text("from pathlib import Path\nimport os,json\ndef route(root,args,**kwargs):\n Path(os.environ['RECORD']).write_text(json.dumps(list(kwargs['input_files'])))\n return 17\n")
-            with patch.object(pool,'ROOT',root),patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record)}):
+            helper.write_text("from pathlib import Path\nimport os,json\ndef route(root,args,**kwargs):\n Path(os.environ['RECORD']).write_text(json.dumps({name:str(path) for name,path in kwargs['input_files'].items()}))\n return 17\n")
+            with patch.object(pool,'ROOT',root),patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record),'NUXIE_ANDROID_MAVEN_REPO':str(alternative)}):
                 self.assertEqual(pool.dispatch('test-android-bridge',[]),17)
-            self.assertIn('.native/maven',json.loads(record.read_text()))
+            inputs=json.loads(record.read_text())
+            self.assertEqual(inputs['.native/maven'],str(root/'.native/maven'))
+            self.assertEqual(inputs['.nuxie/sdk-inputs/maven-repository'],str(alternative.resolve()))
 
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])

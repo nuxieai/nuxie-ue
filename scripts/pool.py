@@ -118,11 +118,10 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
                 args.append('--nuxie-pool-maven-repository=' + value)
             else:
                 selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser().resolve(strict=True)
-                input_files = {**(input_files or {}), '.native/maven': selected}
-                args.append('--nuxie-pool-maven-repository=' + str(ROOT / '.native/maven'))
-        elif (ROOT / 'ThirdParty/Android/maven').is_dir():
-            input_files = {**(input_files or {}), '.native/maven': ROOT / 'ThirdParty/Android/maven'}
-            args.append('--nuxie-pool-maven-repository=' + str(ROOT / '.native/maven'))
+                input_files = {**(input_files or {}), '.nuxie/sdk-inputs/maven-repository': selected}
+                args.append('--nuxie-pool-maven-repository=' + str(selected))
+        elif not (ROOT / '.native/maven').is_dir() and (ROOT / 'ThirdParty/Android/maven').is_dir():
+            args.append('--nuxie-pool-maven-repository=' + str(ROOT / 'ThirdParty/Android/maven'))
     return module.route(ROOT, args, frontend=frontend, platform=platform,
                         requirements=requirements, outputs=names, input_files=input_files, environment=environment,
                         merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
