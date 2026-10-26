@@ -94,8 +94,9 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
     if mode == 'test-android-bridge':
-        selected = ROOT / 'ThirdParty/Android/maven'
-        if selected.is_dir(): input_files = {'ThirdParty/Android/maven': selected, **(input_files or {})}
+        for name in ('.native/maven', 'ThirdParty/Android/maven'):
+            selected = ROOT / name
+            if selected.is_dir(): input_files = {name: selected, **(input_files or {})}
     if mode == 'package':
         input_files = dict(input_files or {})
         for name in ('ThirdParty/Android/lib', 'ThirdParty/Android/maven', 'ThirdParty/IOS/lib', 'ThirdParty/Notices'):
