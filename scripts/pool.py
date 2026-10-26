@@ -12,6 +12,10 @@ SDK = 'ue'
 OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', 'ThirdParty/Android/maven', 'ThirdParty/Android/lib', 'ThirdParty/IOS/lib', '.native/xcframework', '.native/licenses']
 
 
+def option(arguments, name):
+    return next((arguments[i + 1] for i, value in enumerate(arguments[:-1]) if value == name), None) or next((value.split('=', 1)[1] for value in arguments if value.startswith(name + '=')), None)
+
+
 def selection(mode, arguments, command=None):
     selected = 'android' if mode == 'prepare-native' and SDK in ('react-native', 'unity') else 'all'
     for i, arg in enumerate(arguments):
@@ -47,7 +51,7 @@ def selection(mode, arguments, command=None):
             or (SDK == 'android' and mode == 'sdk' and command in ('check', 'lint', 'api-check', 'providers'))):
         requirements.add('java17')
     if mode == 'check-android-blueprint':
-        serial = next((arguments[i + 1] for i, argument in enumerate(arguments[:-1]) if argument == '--serial'), None)
+        serial = option(arguments, '--serial')
         if not serial: raise ValueError('Android device serial is required')
         apple = False; requirements = {'android', 'android-device@' + serial}
     if apple: requirements.add('xcode')
@@ -72,6 +76,10 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
         names.pop('build/bazel-sdk', None)
     frontend = 'scripts/bazel/sdk.py' if mode == 'sdk' else 'scripts/pool.py'
     args = list(arguments) if mode == 'sdk' else [mode, *arguments]
+    if output is not None:
+        for index, argument in enumerate(args):
+            if argument == '--output' and index + 1 < len(args): args[index + 1] = str(Path(output).resolve())
+            elif argument.startswith('--output='): args[index] = '--output=' + str(Path(output).resolve())
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
     if mode == 'package':
@@ -81,10 +89,11 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             input_files[name] = ROOT / name
     if mode == 'check-android-blueprint':
         for index, argument in enumerate(args):
-            if argument == '--apk':
-                selected = Path(args[index + 1]).expanduser().resolve(strict=True)
+            if argument == '--apk' or argument.startswith('--apk='):
+                selected = Path(option(args, '--apk')).expanduser().resolve(strict=True)
                 input_files = {'.nuxie/sdk-inputs/blueprint.apk': selected}
-                args[index + 1] = str(selected)
+                if argument == '--apk': args[index + 1] = str(selected)
+                else: args[index] = '--apk=' + str(selected)
     return module.route(ROOT, args, frontend=frontend, platform=platform,
                         requirements=requirements, outputs=names, input_files=input_files, environment=environment,
                         merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
