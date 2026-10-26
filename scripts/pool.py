@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = 'ue'
-OUTPUTS = ['.native/test-evidence', '.native/build', 'dist', 'ThirdParty/Android/maven', 'ThirdParty/Android/lib', 'ThirdParty/IOS/lib', '.native/xcframework', '.native/licenses']
+OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', 'ThirdParty/Android/maven', 'ThirdParty/Android/lib', 'ThirdParty/IOS/lib', '.native/xcframework', '.native/licenses']
 
 
 def selection(mode, arguments, command=None):
