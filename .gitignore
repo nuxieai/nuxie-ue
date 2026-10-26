@@ -45,3 +45,7 @@ Examples/*/Build/
 /.bazel-cache.local.bazelrc
 /.bazel-cache.*.tmp
 /bazel-*
+
+# Pool evidence belongs to this checkout, never to SDK source.
+/.nuxie/
+/scripts/__pycache__/
