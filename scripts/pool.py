@@ -117,7 +117,9 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             if uri.scheme in ('https', 'http'):
                 args.append('--nuxie-pool-maven-repository=' + value)
             else:
-                selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser().resolve(strict=True)
+                selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser()
+                if not selected.is_absolute(): selected = ROOT / 'ThirdParty/Android' / selected
+                selected = selected.resolve(strict=True)
                 input_files = {**(input_files or {}), '.nuxie/sdk-inputs/maven-repository': selected}
                 args.append('--nuxie-pool-maven-repository=' + str(selected))
         elif not (ROOT / '.native/maven').is_dir() and (ROOT / 'ThirdParty/Android/maven').is_dir():
