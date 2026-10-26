@@ -6,11 +6,15 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+import sys
+from pool import dispatch
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--serial', required=True)
 parser.add_argument('--apk', required=True, type=Path)
 args = parser.parse_args()
+status = dispatch('check-android-blueprint', sys.argv[1:])
+if status is not None: raise SystemExit(status)
 adb = shutil.which('adb') or str(Path(os.environ.get('ANDROID_HOME', '/opt/homebrew/share/android-commandlinetools')) / 'platform-tools/adb')
 package = 'ai.nuxie.unreal.blueprintlab'
 

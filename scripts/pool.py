@@ -30,22 +30,26 @@ def selection(mode, arguments, command=None):
             apple = True
         elif command.endswith('-android'):
             requirements.add('android')
-    elif mode == 'check-ios':
+    elif mode in ('check-ios', 'prepare-ios'):
         apple = True
     else:
         apple = selected in ('ios', 'all')
         if mode in ('prepare-native', 'prepare-android') and SDK == 'unity': apple = False
         if mode == 'prepare-android': apple = False
         if selected in ('android', 'all'): requirements.add('android')
-        if mode == 'check':
+        if mode in ('check', 'package'):
             requirements.update({'react-native': ['node'], 'flutter': [],
                 'godot': ['godot@4.7.2'], 'unity': ['unity@6000.6.7f1'], 'ue': ['unreal']}.get(SDK, []))
     if 'unreal' in requirements:
         version = json.loads((ROOT / 'NATIVE-PINS.json').read_text())['unreal']
         requirements.remove('unreal'); requirements.add('unreal@' + version)
-    if (mode == 'gradle' or (mode == 'check' and 'android' in requirements)
+    if (mode == 'gradle' or (mode == 'check' and SDK != 'ue' and 'android' in requirements)
             or (SDK == 'android' and mode == 'sdk' and command in ('check', 'lint', 'api-check', 'providers'))):
         requirements.add('java17')
+    if mode == 'check-android-blueprint':
+        serial = next((arguments[i + 1] for i, argument in enumerate(arguments[:-1]) if argument == '--serial'), None)
+        if not serial: raise ValueError('Android device serial is required')
+        apple = False; requirements = {'android', 'android-device@' + serial}
     if apple: requirements.add('xcode')
     return ('macos' if apple else 'portable'), sorted(requirements)
 
@@ -69,8 +73,20 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
     args = list(arguments) if mode == 'sdk' else [mode, *arguments]
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
+    if mode == 'package':
+        input_files = dict(input_files or {})
+        for name in ('ThirdParty/Android/lib', 'ThirdParty/Android/maven', 'ThirdParty/IOS/lib', 'ThirdParty/Notices'):
+            if not (ROOT / name).is_dir(): raise ValueError('Prepare native SDK products before packaging: ' + name)
+            input_files[name] = ROOT / name
+    if mode == 'check-android-blueprint':
+        for index, argument in enumerate(args):
+            if argument == '--apk':
+                selected = Path(args[index + 1]).expanduser().resolve(strict=True)
+                input_files = {'.nuxie/sdk-inputs/blueprint.apk': selected}
+                args[index + 1] = str(selected)
     return module.route(ROOT, args, frontend=frontend, platform=platform,
-                        requirements=requirements, outputs=names, input_files=input_files, environment=environment)
+                        requirements=requirements, outputs=names, input_files=input_files, environment=environment,
+                        merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
 
 
 def main():
