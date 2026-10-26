@@ -8,6 +8,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+import sys
+from pool import dispatch
 from native_receipt import validate as validate_native_receipt
 
 root = Path(__file__).resolve().parent.parent
@@ -17,6 +19,8 @@ parser.add_argument('--output', required=True, type=Path)
 args = parser.parse_args()
 output = args.output.resolve()
 if output.exists(): raise SystemExit('Preserving existing output; choose a new output directory.')
+status = dispatch('package', sys.argv[1:], output=output)
+if status is not None: raise SystemExit(status)
 engine = Path(os.environ.get('UNREAL_ENGINE_ROOT', '/Users/Shared/Epic Games/UE_5.8'))
 version = json.loads((engine / 'Engine/Build/Build.version').read_text())
 if (version['MajorVersion'], version['MinorVersion']) != (5, 8): raise SystemExit('Use the qualified UE 5.8 toolchain.')
